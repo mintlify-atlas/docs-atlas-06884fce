@@ -1,0 +1,190 @@
+---
+title: "Where SlimBrave Neo Writes Policies on Each Platform"
+sidebarTitle: "Policy Locations"
+description: "SlimBrave Neo writes Chromium managed enterprise policies to platform-specific locations. Learn where policies land on Linux, macOS, and Windows."
+---
+
+SlimBrave Neo writes [Chromium managed enterprise policies](https://chromeenterprise.google/policies/) and **nothing else** — no binary edits, no hosts-file entries, no service changes, no startup entries. Brave reads these policies at startup and enforces them. After applying, always restart Brave and verify at `brave://policy`.
+
+## Policy locations at a glance
+
+| Platform | Policy location |
+|---|---|
+| **Linux** | `/etc/brave/policies/managed/slimbrave.json` — one file, shared across all channels, mode `0644`, written atomically |
+| **macOS (`--persist off`)** | `/Library/Managed Preferences/com.brave.Browser.plist` (one per selected channel) |
+| **macOS (`--persist on`)** | Apple Configuration Profile with identifier `io.github.slimbrave-neo.brave-policy`, installed via System Settings |
+| **Windows** | `HKLM:\SOFTWARE\Policies\BraveSoftware\Brave` — one key for Stable, Beta, Nightly and Origin (no channel suffix) |
+
+---
+
+## Linux
+
+<Note>
+  On Linux, **every Brave channel reads the same managed-policy directory**. brave-core hardcodes `/etc/brave/policies` for all channels — Stable, Beta, Nightly, Dev, and Brave Origin. You cannot target individual channels with a separate policy file.
+</Note>
+
+SlimBrave Neo writes a single file:
+
+```
+/etc/brave/policies/managed/slimbrave.json
+```
+
+The file is created with permissions `0644` and written **atomically** (written to a temp path in the same directory, then renamed into place) so Brave never reads a partially-written policy.
+
+### All channels, one file
+
+Because brave-core hardcodes `/etc/brave/policies` for every Linux channel, a single `slimbrave.json` applies to all of them simultaneously:
+
+| Channel | User data dir |
+|---|---|
+| Stable | `~/.config/BraveSoftware/Brave-Browser` |
+| Beta | `~/.config/BraveSoftware/Brave-Browser-Beta` |
+| Nightly | `~/.config/BraveSoftware/Brave-Browser-Nightly` |
+| Dev | `~/.config/BraveSoftware/Brave-Browser-Dev` |
+| Origin | `~/.config/BraveSoftware/Brave-Origin` |
+| Origin Beta | `~/.config/BraveSoftware/Brave-Origin-Beta` |
+| Origin Nightly | `~/.config/BraveSoftware/Brave-Origin-Nightly` |
+
+<Tip>
+  The `--channels` flag (e.g. `--channels origin`) does **not** change which channels receive the policy — the single `/etc/brave/policies/managed/slimbrave.json` always applies to all of them. The flag only controls which channels are included in the Shields-exception scrub and running-process detection.
+</Tip>
+
+### Overriding the policy file path
+
+The `--policy-file` flag lets you target a different path. For security, only paths inside these two directories are accepted:
+
+```
+/etc/brave/policies/managed
+/etc/chromium/policies/managed
+```
+
+Any other path is refused. This prevents the combination of root access and `--reset` from being used as an arbitrary file deletion vector.
+
+### Reset behavior
+
+`--reset` unlinks **only** `slimbrave.json`. Nothing else inside `/etc/brave/policies/managed` is touched — other tools' policy files, if any, are left intact.
+
+```bash
+# These two are equivalent:
+sudo python3 slimbrave-linux.py --reset
+sudo rm /etc/brave/policies/managed/slimbrave.json
+```
+
+---
+
+## macOS
+
+macOS offers two persistence modes that determine where policies are written.
+
+<Tabs>
+  <Tab title="--persist off (default)">
+    SlimBrave Neo writes one plist per selected Brave channel to `/Library/Managed Preferences`:
+
+    | Channel | Plist path |
+    |---|---|
+    | Stable | `/Library/Managed Preferences/com.brave.Browser.plist` |
+    | Beta | `/Library/Managed Preferences/com.brave.Browser.beta.plist` |
+    | Nightly | `/Library/Managed Preferences/com.brave.Browser.nightly.plist` |
+
+    After writing, SlimBrave Neo runs `killall cfprefsd` so the new values take effect without a reboot.
+
+    <Warning>
+      On macOS 13 (Ventura) and later, `cfprefsd` and `mdmclient` may **clear directly-written managed plists at reboot** when no Configuration Profile backs them. If you need policies to survive restarts, use `--persist on`.
+    </Warning>
+  </Tab>
+  <Tab title="--persist on">
+    SlimBrave Neo installs an **Apple Configuration Profile** instead of writing plists directly. This is Apple's supported path and is durable across reboots.
+
+    - **Profile identifier:** `io.github.slimbrave-neo.brave-policy`
+    - The profile is staged into a private `0700` temp directory and handed to System Settings
+    - **You approve the install yourself** in the GUI — no silent installation
+
+    To complete the install on macOS 13+ (Ventura/Sonoma/Sequoia):
+
+    <Steps>
+      <Step title="Run the script">
+        ```bash
+        sudo python3 slimbrave-mac.py --persist on
+        ```
+      </Step>
+      <Step title="Watch for the notification">
+        A "Profile Downloaded" notification appears in System Settings.
+      </Step>
+      <Step title="Approve in Device Management">
+        Go to **System Settings → General → Device Management**, scroll to **Downloaded**, double-click **SlimBrave Neo - Brave Policy**, click **Install**, and enter your login password.
+      </Step>
+      <Step title="Verify">
+        Restart Brave and confirm policies are active at `brave://policy`.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+### Persistence mode memory
+
+When `--persist` is omitted on the CLI, SlimBrave Neo reuses whatever mode is currently installed on the machine — so a re-run never silently demotes an installed Configuration Profile back to plist-only. A fresh install defaults to `off`.
+
+### Overriding the policy file path
+
+The `--policy-file` flag is restricted to these two directories on macOS:
+
+```
+/Library/Managed Preferences
+/Library/Preferences
+```
+
+### Reset behavior
+
+`--reset` removes only the plists SlimBrave Neo wrote and removes the Configuration Profile by its identifier (`io.github.slimbrave-neo.brave-policy`). No other managed preference files are touched.
+
+---
+
+## Windows
+
+SlimBrave Neo writes all policies into a single registry key:
+
+```
+HKLM:\SOFTWARE\Policies\BraveSoftware\Brave
+```
+
+This key applies to Stable, Beta, Nightly, Dev, and Brave Origin — **there is no channel suffix** in the path.
+
+### What gets written
+
+<Steps>
+  <Step title="HKLM policy key (written on Apply)">
+    One registry value per enabled option is created under `HKLM:\SOFTWARE\Policies\BraveSoftware\Brave`. List policies (like extension blocklists) get numbered subkeys. **Nothing is written until you press Apply Settings** — opening the app writes nothing.
+  </Step>
+  <Step title="HKCU cleanup (values removed only, never written)">
+    On Apply and Reset, SlimBrave Neo removes any matching values from `HKCU:\SOFTWARE\Policies\BraveSoftware\Brave`. It **never writes** to HKCU. This prevents leftover user-scope policies from overriding the machine-scope ones.
+  </Step>
+  <Step title="Legacy Shields exception scrub">
+    Old pre-1.x SlimBrave wrote content-setting exceptions directly into Brave profile files. SlimBrave Neo scrubs these from every interactive account on the machine:
+
+    ```
+    %LOCALAPPDATA%\BraveSoftware\<channel>\User Data\<profile>\Preferences
+    ```
+
+    Only `profile.content_settings.exceptions.braveShields` entries for `http://*,*` and `https://*,*` are removed. Nothing else in the file is read or changed. This scrub is **skipped while Brave is running** (Brave would overwrite the file on its next save).
+  </Step>
+</Steps>
+
+### Reset behavior
+
+Reset removes only the values that SlimBrave Neo manages, from both `HKLM` and `HKCU` scopes. It does **not** delete the `Brave` registry key itself and does not touch other values inside it.
+
+<Note>
+  Values set by other tools — `ExtensionInstallForcelist`, `URLBlocklist`, `ProxySettings`, and any GPO-managed keys — are left completely intact by both Apply and Reset.
+</Note>
+
+---
+
+## Verifying policies are active
+
+After applying on any platform, restart Brave and navigate to:
+
+```
+brave://policy
+```
+
+Every managed policy SlimBrave Neo wrote should appear with **Source: Platform** and a green status. If a key you expected to see is missing, ensure you restarted Brave after applying.

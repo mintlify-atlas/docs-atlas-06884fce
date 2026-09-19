@@ -1,0 +1,155 @@
+---
+title: "How SlimBrave Neo Detects Brave Channels"
+sidebarTitle: "Channel Detection"
+description: "SlimBrave Neo auto-detects every installed Brave channel — Stable, Beta, Nightly, Dev, and Brave Origin — across all Linux packaging formats, macOS, and Windows."
+---
+
+SlimBrave Neo automatically detects which Brave channels are installed on the machine before doing any work. Detection drives three behaviors:
+
+1. **Shields-exception scrub** — cleaning legacy Shields entries from each channel's user-data directory
+2. **Running-process detection** — checking whether any Brave channel is open before writing policy files
+3. **Channel-scoped operations** — narrowing the scope of scrubs and process checks with `--channels`
+
+---
+
+## Linux
+
+Linux has the richest set of channels because it supports Brave's official builds, Brave Origin, and multiple packaging formats all at once.
+
+### Channels
+
+| Channel ID | Label | User data dir | Process name |
+|---|---|---|---|
+| `stable` | Stable | `Brave-Browser` | `brave` |
+| `beta` | Beta | `Brave-Browser-Beta` | `brave-browser-beta` |
+| `nightly` | Nightly | `Brave-Browser-Nightly` | `brave-browser-nightly` |
+| `dev` | Dev | `Brave-Browser-Dev` | `brave-browser-dev` |
+| `origin` | Origin | `Brave-Origin` | `brave-origin` |
+| `origin-beta` | Origin Beta | `Brave-Origin-Beta` | `brave-origin-beta` |
+| `origin-nightly` | Origin Nightly | `Brave-Origin-Nightly` | `brave-origin-nightly` |
+
+All user-data directories live under `~/.config/BraveSoftware/<user_data_dir>/`.
+
+<Note>
+  **Brave Origin is its own channel.** It is a separate Brave build that removes certain features at compile time. SlimBrave Neo detects it independently from regular Brave channels and, on a machine where only Origin is installed, marks the 13 features Origin compiles out as inert (`[-]`, greyed, labeled `(built into Origin)`).
+</Note>
+
+### Packaging detection
+
+SlimBrave Neo checks for each channel across all common Linux packaging formats:
+
+<CardGroup cols={2}>
+  <Card title="Arch / AUR" icon="box">
+    Detects `brave-bin` (Stable) and `brave-origin-bin` (Origin) installed via the AUR or user repositories. Looks for the binary under `/opt/brave-bin` and `/opt/brave-origin-bin`.
+  </Card>
+  <Card title="deb / rpm" icon="box-archive">
+    Detects `brave-browser` (Stable) and `brave-origin` packages. Installed binary paths follow the standard deb/rpm layout under `/opt/brave.com/`.
+  </Card>
+  <Card title="Flatpak" icon="layer-group">
+    Detects `com.brave.Browser` from Flathub. Checks the Flatpak profile path at `~/.var/app/com.brave.Browser` in addition to the standard config location.
+  </Card>
+  <Card title="Snap" icon="circle-dot">
+    Detects Brave installed via Snap and checks its corresponding profile path.
+  </Card>
+</CardGroup>
+
+**PATH fallback:** if none of the above packaging paths match, SlimBrave Neo checks whether a `brave` (or `brave-origin`) launcher is present anywhere on `PATH`.
+
+### Policy scope on Linux
+
+<Warning>
+  On Linux, the `--channels` flag does **not** control which channels receive the managed policy. The single file `/etc/brave/policies/managed/slimbrave.json` is hardcoded by brave-core for every channel — Stable, Beta, Nightly, Dev, and all Origin variants all read it simultaneously.
+
+  `--channels` only narrows which channels are included in the **Shields-exception scrub** and **running-process detection**.
+</Warning>
+
+```bash
+# Narrow scrub and process detection to Origin only — policy still applies to all channels
+sudo python3 slimbrave-linux.py --import preset.json --channels origin
+
+# Comma-separated for multiple channels
+sudo python3 slimbrave-linux.py --import preset.json --channels stable,origin
+```
+
+---
+
+## macOS
+
+### Channels
+
+SlimBrave Neo detects up to three Brave channels on macOS, each as an App bundle:
+
+- **Stable** — `Brave Browser.app`
+- **Beta** — `Brave Browser Beta.app`
+- **Nightly** — `Brave Browser Nightly.app`
+
+Apple Silicon and Intel installations are both detected.
+
+### Per-channel policy files
+
+Unlike Linux, macOS writes **one plist per channel**. The Apply-time channel prompt pre-ticks channels that already have a SlimBrave-managed policy installed — so re-running the tool preserves your existing scope as the sticky default.
+
+```bash
+# Apply to stable and beta only
+sudo python3 slimbrave-mac.py --import preset.json --channels stable,beta
+
+# Apply to all detected channels (default)
+sudo python3 slimbrave-mac.py --import preset.json
+```
+
+The `--channels` flag on macOS accepts: `stable`, `beta`, `nightly` (comma-separated).
+
+---
+
+## Windows
+
+### Auto-detection
+
+SlimBrave Neo auto-detects Stable, Beta, Nightly, and Dev installations on Windows by checking the standard install paths for each.
+
+### Single registry key for all channels
+
+All channels share one registry key — **there is no channel suffix**:
+
+```
+HKLM:\SOFTWARE\Policies\BraveSoftware\Brave
+```
+
+There is no `--channels` flag on the Windows GUI. The PowerShell script is GUI-only with no user-facing CLI flags.
+
+---
+
+## What happens after detection
+
+<Steps>
+  <Step title="Read existing policies at startup">
+    The script reads the policy currently installed for each detected channel and pre-checks matching features in the UI. This means the interface always reflects what is actually on the machine — a re-sync can never disagree with a fresh launch.
+  </Step>
+  <Step title="Check for running Brave processes">
+    Before writing any policy file, SlimBrave Neo checks whether any detected channel is currently running. If Brave is open, writing is blocked and you are prompted to close it first. This check covers **all detected channels**, not just the one you are targeting.
+  </Step>
+  <Step title="Apply: full overwrite">
+    On Apply, SlimBrave Neo writes the complete set of managed policies derived from your selections. Unchecked features are cleanly removed from the policy file — there is no accumulation of stale keys.
+  </Step>
+  <Step title="Shields-exception scrub">
+    For each detected (and targeted) channel, the script scrubs legacy `http://*,*` and `https://*,*` entries from `profile.content_settings.exceptions.braveShields` in each channel's profile `Preferences` file. This cleans up a leak from pre-1.x SlimBrave that wrote Shields overrides directly into profiles.
+  </Step>
+</Steps>
+
+---
+
+## Using the `--channels` flag (Linux and macOS)
+
+```bash
+# Linux: narrow scrub and process detection to Origin and Origin Beta
+sudo python3 slimbrave-linux.py --reset --channels origin,origin-beta
+
+# macOS: apply only to Nightly
+sudo python3 slimbrave-mac.py --import ./Presets/Balanced\ Privacy\ Preset.json --channels nightly
+
+# macOS: apply to Stable and Beta, with durable Configuration Profile
+sudo python3 slimbrave-mac.py --import ./Presets/Maximum\ Privacy\ Preset.json \
+  --channels stable,beta --persist on
+```
+
+The default (`auto`) targets all detected channels.

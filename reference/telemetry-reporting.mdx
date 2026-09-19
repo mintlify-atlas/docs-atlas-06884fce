@@ -1,0 +1,70 @@
+---
+title: "Telemetry & Reporting Policies in SlimBrave Neo"
+sidebarTitle: "Telemetry & Reporting"
+description: "Seven policies covering Brave's telemetry channels: metrics, extended Safe Browsing reports, URL data collection, P3A analytics, the stats ping, variations/Griffin, and spell-check."
+---
+
+This category covers every channel through which Brave phones home with usage data or requests remote configuration. Disabling all seven closes the primary reporting surface without touching Safe Browsing protection itself. Two of the seven — the Variations rows and the Spellcheck rows — are **mutually exclusive pairs**: enabling one member of a pair automatically deactivates the other.
+
+## Policy Reference
+
+| Policy Name | Policy Key | Value Written | What It Does |
+|---|---|---|---|
+| Disable Metrics Reporting | `MetricsReportingEnabled` | `false` | Stops Brave from sending anonymous usage statistics and crash reports to Brave's servers. **Requires a browser restart.** |
+| Disable Safe Browsing Reporting | `SafeBrowsingExtendedReportingEnabled` | `false` | Stops extended Safe Browsing reports (details about suspicious pages and downloads) from being sent to Google. Safe Browsing protection itself stays on — only the extended reports channel is closed. |
+| Disable URL Data Collection | `UrlKeyedAnonymizedDataCollectionEnabled` | `false` | Stops URL-keyed anonymized data collection, which reports the URLs you visit to improve suggestion and safety features. |
+| Disable P3A Analytics | `BraveP3AEnabled` | `false` | Disables P3A (Privacy-Preserving Product Analytics), Brave's anonymized product-usage telemetry. |
+| Disable Stats Ping | `BraveStatsPingEnabled` | `false` | Stops the daily usage ping that counts this install in Brave's active-user statistics. |
+| Limit Variations to Critical Fixes | `ChromeVariations` | `1` | Restricts Brave's remote experiment seed (Griffin) to critical security and stability fixes, instead of the full A/B experiment set. **Mutually exclusive with Disable Variations.** |
+| Disable Variations / Griffin Experiments | `ChromeVariations` | `2` | Blocks the remote experiment seed entirely so Brave can no longer flip features in your installed browser from its servers. **Also blocks emergency security killswitches.** Mutually exclusive with Limit Variations. |
+| Disable Enhanced Spell Check | `SpellCheckServiceEnabled` | `false` | Stops enhanced spell check, which sends text you type in web forms to Google's servers for checking. Offline spell checking keeps working. **Mutually exclusive with Disable Spellcheck** (in Performance & Bloat). |
+
+---
+
+## Detailed Notes
+
+### Metrics Reporting — restart required
+
+`MetricsReportingEnabled: false` takes effect only after a full browser restart. Brave's metrics collector is initialized at launch and the policy flag is not re-evaluated mid-session.
+
+### Safe Browsing Reporting vs. Safe Browsing protection
+
+These are separate features with separate keys:
+
+- **`SafeBrowsingExtendedReportingEnabled: false`** (this category) — disables the voluntary extended-reports channel that sends details of suspicious pages back to Google. Safe Browsing protection continues; Brave routes those lookups through its own proxy so Google never sees the visited URLs.
+- **`SafeBrowsingProtectionLevel: 0`** (Privacy & Security category) — disables Safe Browsing outright, removing phishing and malware interstitials. That key is excluded from every preset because the privacy gain is near-zero while the security cost is real.
+
+### Variations / Griffin — choose one
+
+`ChromeVariations` is an integer enum. Two values are exposed:
+
+```json
+{ "ChromeVariations": 1 }
+```
+Value `1` — **Limit to Critical Fixes.** The Griffin seed is still fetched but only security- and stability-related experiments are applied. Emergency feature killswitches continue working. This is the safer of the two options and what all privacy presets use.
+
+```json
+{ "ChromeVariations": 2 }
+```
+Value `2` — **Disable entirely.** No seed is fetched. Brave cannot flip any feature remotely, including killswitches for broken or exploited features. Choose this only if you accept that trade.
+
+These two rows are **mutually exclusive** — selecting one deselects the other. Setting both to the same policy file would result in the last-written value winning, which is undefined behaviour; SlimBrave Neo enforces exactly one active at a time.
+
+### Enhanced Spell Check vs. full Spellcheck
+
+Two rows across two categories control spellcheck; they are mutually exclusive:
+
+| Row | Key | Category | Effect |
+|---|---|---|---|
+| Disable Enhanced Spell Check | `SpellCheckServiceEnabled: false` | Telemetry & Reporting | Drops the Google server-side lookup; keeps offline checking |
+| Disable Spellcheck | `SpellcheckEnabled: false` | Performance & Bloat | Turns off all spellcheck, offline included |
+
+When `SpellcheckEnabled` is `false`, `SpellCheckServiceEnabled` has no effect — there is nothing left for it to govern. Enabling the full-disable row automatically deactivates the enhanced-only row in the UI.
+
+<Note>
+  The "Disable Safe Browsing Reporting" row closes the extended reports channel only. It does **not** disable Safe Browsing itself. If you also want to disable Safe Browsing protection (not recommended — see Privacy & Security), use `SafeBrowsingProtectionLevel: 0` in the Privacy & Security category.
+</Note>
+
+<Warning>
+  "Disable Variations / Griffin Experiments" (`ChromeVariations: 2`) also blocks Brave's emergency security killswitches — the mechanism Brave uses to disable a broken or actively-exploited feature before a full release. Prefer "Limit Variations to Critical Fixes" (`ChromeVariations: 1`) unless you have a specific reason to block the seed entirely.
+</Warning>

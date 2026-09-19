@@ -1,0 +1,175 @@
+---
+title: "Import and Export SlimBrave Neo Configurations"
+sidebarTitle: "Import & Export"
+description: "Save, restore, and share SlimBrave Neo policy configurations as JSON files. Configs are cross-platform and round-trip between the Windows GUI and Linux/macOS scripts."
+---
+
+## What the config format stores
+
+A SlimBrave Neo export is a plain UTF-8 JSON file with two top-level sections:
+
+- **`Features`** — an object mapping each managed policy key to its value. Only keys that are actively managed (toggled on, or set to a non-default choice) appear here. Keys absent from the file are treated as "Not managed" on import.
+- **`DnsMode` / `DnsTemplates`** — present only when a DNS mode other than `unmanaged` is selected. When `DnsMode` is absent, the import treats DNS as unmanaged.
+
+### Example config snippet
+
+The keys below are taken from the Maximum Privacy Preset:
+
+```json
+{
+    "Features": {
+        "MetricsReportingEnabled": false,
+        "BraveP3AEnabled": false,
+        "BraveStatsPingEnabled": false,
+        "BraveRewardsDisabled": true,
+        "BraveWalletDisabled": true,
+        "BraveVPNDisabled": true,
+        "BraveAIChatEnabled": false,
+        "BraveLocalAIEnabled": false,
+        "BraveNewsDisabled": true,
+        "BraveTalkDisabled": true,
+        "TorDisabled": true,
+        "SyncDisabled": true,
+        "EmailAliasesEnabled": false,
+        "BlockThirdPartyCookies": true,
+        "BraveGlobalPrivacyControlEnabled": true,
+        "DeveloperToolsAvailability": 2,
+        "PrintingEnabled": false
+    },
+    "DnsOverHttpsMode": "automatic",
+    "DnsOverHttpsTemplates": ""
+}
+```
+
+<Note>
+The `DnsMode` and `DnsTemplates` fields in the config file map to `DnsOverHttpsMode` and `DnsOverHttpsTemplates` when written to the actual policy file. The JSON config uses short names (`DnsMode`, `DnsTemplates`) as an internal format; the scripts translate them to Chromium's policy key names when applying.
+</Note>
+
+## Cross-platform compatibility
+
+All three scripts (Windows PowerShell, Linux Python, macOS Python) share the same JSON format:
+
+- **Export:** all three scripts write **UTF-8 without a BOM**.
+- **Import:** all three scripts can read both current UTF-8 exports and the older **UTF-16** files that early PowerShell versions of SlimBrave produced. BOM detection is automatic — you do not need to convert old files before importing them.
+
+A config file exported on Windows imports cleanly on Linux and macOS, and vice versa.
+
+## Exporting your current configuration
+
+Exporting reads whatever policies are currently applied (from the policy file on Linux/macOS, or from the registry on Windows) and writes them to a JSON file you choose.
+
+<Tabs>
+  <Tab title="Windows GUI">
+    Click **Export** in the button row at the bottom of the window. A save dialog opens. Choose a location and filename, then click Save. The file is written as UTF-8 JSON.
+  </Tab>
+  <Tab title="Linux">
+    ```bash
+    sudo python3 slimbrave-linux.py --export ~/SlimBraveNeoSettings.json
+    ```
+
+    The script reads the current policy file at `/etc/brave/policies/managed/slimbrave.json`, translates it back into the config format, and writes the output file. Running as root, ownership is handed back to the invoking user so the file is not stranded as root-owned in your home directory.
+  </Tab>
+  <Tab title="macOS">
+    ```bash
+    sudo python3 slimbrave-mac.py --export ~/SlimBraveNeoSettings.json
+    ```
+  </Tab>
+</Tabs>
+
+## Importing a configuration
+
+Importing reads a JSON config file, updates every row to match its contents, and writes the resulting policy. Keys absent from the file are set back to **Not managed**.
+
+<Tabs>
+  <Tab title="Windows GUI">
+    Click **Import** in the button row. A file picker opens. Select a `.json` config file. The GUI fills in all controls to match the file but **does not write to the registry** until you press **Apply Settings** — review and adjust the loaded settings first.
+  </Tab>
+  <Tab title="Linux">
+    ```bash
+    sudo python3 slimbrave-linux.py --import ~/SlimBraveNeoSettings.json
+    ```
+
+    In CLI mode, the script imports the file and immediately applies the policy — no interactive review step. Combine with `--doh-templates` to set or override the DNS template in the same command.
+  </Tab>
+  <Tab title="macOS">
+    ```bash
+    sudo python3 slimbrave-mac.py --import ~/SlimBraveNeoSettings.json
+    ```
+
+    Add `--persist on` to install an Apple Configuration Profile at the same time:
+
+    ```bash
+    sudo python3 slimbrave-mac.py --import ~/SlimBraveNeoSettings.json --persist on
+    ```
+  </Tab>
+</Tabs>
+
+## Partial imports and missing keys
+
+A config file does not need to name every policy. On import:
+
+- A key **present** in the file is applied at the value the file specifies.
+- A key **absent** from the file comes back as **Not managed** — even if it was previously set on the machine.
+
+This means importing a preset or a colleague's config is a full replacement, not a merge. If you want to keep settings that are not in the imported file, export your current config first, merge the two files manually, then import the merged result.
+
+## Notes on specific import scenarios
+
+<AccordionGroup>
+
+<Accordion title="Site Permissions (value 2 = Block)">
+Config files exported with SlimBrave Neo v1.9.5 or earlier carry integer value `2` for permission keys such as `DefaultNotificationsSetting`, `DefaultGeolocationSetting`, and `DefaultSensorsSetting`. On import, value `2` is interpreted as **Block** — the same behaviour as ticking the old checkbox. These files import cleanly with no conversion needed.
+
+A value that is outside a permission key's legal enum set (for example, `1` on a key that only accepts Ask or Block) is **left unmanaged** rather than written out, and the import result message names the key that was skipped.
+</Accordion>
+
+<Accordion title="TUI import with Brave Origin built-in keys">
+When importing a preset or config that names keys for features Brave Origin compiles out of its binary (such as `BraveRewardsDisabled` or `TorDisabled`), those keys are left unmanaged on an Origin-only machine and the result message reports how many were skipped:
+
+```
+Imported from ./Presets/Brave Origin Preset.json; 13 keys built into Brave Origin left unmanaged
+```
+
+The import still succeeds — the other keys are applied normally.
+</Accordion>
+
+<Accordion title="Re-sync button (Windows GUI)">
+The **Re-sync** button in the Windows GUI button row reads the policy currently in the registry back into the interface, discarding any on-screen changes you have staged but not yet applied. It writes nothing to the registry. A re-sync produces the same result as closing and reopening the GUI, so it can never disagree with a fresh launch.
+
+Use Re-sync when you want to discard in-progress edits and return to the last applied state.
+</Accordion>
+
+<Accordion title="Exporting on an Origin-only machine">
+When exporting on a machine whose only Brave is Brave Origin, any keys in the policy file that correspond to features Origin compiles out are skipped in the export. The CLI reports how many were left out:
+
+```
+Note: 13 keys built into Brave Origin left out of the export
+```
+
+The export still succeeds. If you later import the file on a standard Brave machine, those 13 keys will be absent and come back as Not managed on that machine.
+</Accordion>
+
+</AccordionGroup>
+
+## Round-tripping between platforms
+
+Because the format is identical across all three scripts, configs move freely between platforms:
+
+<Steps>
+  <Step title="Export on Windows">
+    Use the Export button in the Windows GUI. The file is written as UTF-8 JSON to the path you choose.
+  </Step>
+  <Step title="Transfer the file">
+    Copy the exported `.json` file to your Linux or macOS machine (USB drive, `scp`, shared folder, etc.).
+  </Step>
+  <Step title="Import on Linux or macOS">
+    ```bash
+    sudo python3 slimbrave-linux.py --import /path/to/exported-config.json
+    ```
+  </Step>
+  <Step title="Verify">
+    Restart Brave and open `brave://policy` to confirm the policies are active.
+  </Step>
+</Steps>
+
+After applying, restart Brave and verify at `brave://policy`.

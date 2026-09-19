@@ -1,0 +1,224 @@
+---
+title: "Get Started with SlimBrave Neo on macOS"
+sidebarTitle: "macOS"
+description: "Apply Brave hardening policies on macOS via managed plist or install a durable Configuration Profile. Python 3 stdlib only, requires root."
+---
+
+## Requirements
+
+- Python 3.9+ (no external packages — stdlib only)
+- Root privileges (`sudo`)
+- Brave Browser installed (Stable, Beta, and/or Nightly)
+
+---
+
+<Steps>
+
+<Step title="Clone the repository">
+
+```bash
+git clone https://github.com/ChaoticSi1ence/SlimBrave-Neo.git
+cd SlimBrave-Neo
+```
+
+No `pip install`, no external tools. Just Python 3 and `sudo`.
+
+</Step>
+
+<Step title="Launch the TUI">
+
+```bash
+sudo python3 slimbrave-mac.py
+```
+
+The script opens a curses TUI in your terminal. It auto-detects every installed Brave channel (Stable, Beta, Nightly) and reads any existing policy plist before drawing the screen. A machine with no existing policy opens with everything unchecked.
+
+</Step>
+
+<Step title="Navigate the TUI">
+
+The macOS TUI is the same interface described for Linux — the same seven collapsible categories, the same live `n/m on` counts, the same `/` search, description pane (`d`), `?` key overlay, and Site Permissions selectors.
+
+**Categories:** Telemetry & Reporting, Privacy & Security, Site Permissions, Access Controls, Brave Features, Shields & Content Protection, Performance & Bloat, and a DNS Over HTTPS section.
+
+- **Left/Right** on a header folds or unfolds it; `c` folds everything (or unfolds all when already folded).
+- `/` filters rows by name as you type; **Esc** clears the filter and restores fold state.
+- The description pane below the list shows the plain-English description of whatever row the cursor is on. `d` toggles it.
+
+<Tip>
+  On launch the fold states reflect what is already applied — sections holding a
+  managed policy open, the rest stay folded. On a clean machine the overview is
+  short; on a configured one it opens on what is actually enforced.
+</Tip>
+
+</Step>
+
+<Step title="Load a preset (optional)">
+
+Tab to the button row and choose **Import**, then enter the path to a preset file:
+
+```
+./Presets/Maximum Privacy Preset.json
+./Presets/Balanced Privacy Preset.json
+./Presets/Performance Focused Preset.json
+./Presets/Developer Preset.json
+./Presets/Strict Parental Controls Preset.json
+./Presets/Brave Origin Preset.json
+```
+
+Loading a preset fills in the controls; nothing is written until you press **Apply**.
+
+</Step>
+
+<Step title="Toggle individual policies">
+
+Use **Up/Down** to move the cursor and **Space/Enter** to toggle. **Left/Right** cycles Site Permission selectors and DNS mode options. The DNS template URL field is inline-editable — navigate to it and type directly.
+
+Any row left on *Not managed* writes nothing. Brave's own defaults stand for that key.
+
+</Step>
+
+<Step title="Press Apply — two macOS-only prompts appear">
+
+When you press **Apply** in the TUI, SlimBrave Neo asks two questions that do not appear on Linux:
+
+**1. Channel selection** (only when more than one Brave channel is installed)
+
+A prompt lists the detected channels (Stable, Beta, Nightly) and asks which to manage. Each channel on macOS has its own bundle ID and plist, so policies are written per-channel. The default pre-ticks whichever channels already have a SlimBrave-managed policy — re-running never silently widens scope. Press Enter to accept the default, or adjust the selection.
+
+**2. Persistence mode**
+
+A prompt asks whether to persist policies across reboots:
+
+| Mode | What it does | Persists after reboot | User action required |
+|------|-------------|----------------------|---------------------|
+| `off` (default) | Writes the managed preferences plist directly to `/Library/Managed Preferences/` | May reset on macOS 13+ (Apple Silicon) | `sudo` only |
+| `on` | Installs an Apple Configuration Profile via System Settings | Yes — durable, Apple-recommended | `sudo` + one-time GUI install in System Settings |
+
+<Warning>
+  On Apple Silicon Macs running macOS 13 (Ventura) or later, `cfprefsd` and
+  `mdmclient` may silently clear directly-written
+  `/Library/Managed Preferences/*.plist` files at reboot when no matching
+  Configuration Profile is installed. If your policies disappear after a
+  restart, use `--persist on` (or choose `on` at the TUI prompt) to install a
+  durable Configuration Profile instead.
+</Warning>
+
+<Note>
+  When `--persist` is omitted on the CLI, the mode already installed on the Mac
+  is reused — a re-run never silently demotes an installed profile back to
+  plist-only. A fresh install defaults to `off`.
+</Note>
+
+</Step>
+
+<Step title="Complete the Configuration Profile install (if persist = on)">
+
+With persistence mode `on`, SlimBrave Neo writes a `.mobileconfig` profile and opens System Settings automatically. macOS 11+ disallows CLI-driven profile installs, so you complete the final step in the GUI:
+
+1. A **"Profile Downloaded"** notification appears in the top-right corner.
+2. In **System Settings**, navigate to **General → Device Management**.
+3. Scroll down to the **Downloaded** section.
+4. Double-click **SlimBrave Neo - Brave Policy**.
+5. Click **Install…** and enter your login password when prompted.
+
+Policies take effect immediately after installation and persist across reboots.
+
+To uninstall the profile later, either run `sudo python3 slimbrave-mac.py --reset` or remove it manually from **System Settings → General → Device Management**.
+
+<Note>
+  Reference: [Apple — Install configuration profiles on
+  Mac](https://support.apple.com/guide/mac-help/mh35561/mac)
+</Note>
+
+</Step>
+
+<Step title="Restart Brave and verify">
+
+Close all Brave windows, then relaunch. Navigate to `brave://policy` and confirm that your applied policies appear, sourced from a platform-level managed location.
+
+</Step>
+
+</Steps>
+
+---
+
+## CLI Mode (Non-Interactive)
+
+All functionality is available without the TUI:
+
+```bash
+# Apply a preset with Configuration Profile persistence
+sudo python3 slimbrave-mac.py --import "./Presets/Maximum Privacy Preset.json" --persist on
+
+# Apply a preset with plist only (may reset on macOS 13+)
+sudo python3 slimbrave-mac.py --import "./Presets/Maximum Privacy Preset.json" --persist off
+
+# Export the current policy to a JSON file
+sudo python3 slimbrave-mac.py --export ~/SlimBraveNeoSettings.json
+
+# Remove the managed policy file (and profile, if installed)
+sudo python3 slimbrave-mac.py --reset
+
+# Apply to specific channels only
+sudo python3 slimbrave-mac.py --import preset.json --channels stable,beta
+```
+
+### Full CLI Flag Reference
+
+| Flag | Description |
+|------|-------------|
+| `--import PATH` | Import a SlimBrave Neo JSON config and apply policies |
+| `--export PATH` | Export the current policy to a SlimBrave Neo JSON config |
+| `--reset` | Remove the managed policy file(s) and/or Configuration Profile |
+| `--policy-file PATH` | Override the policy file path (must resolve inside `/Library/Managed Preferences` or `/Library/Preferences`) |
+| `--doh-templates URL` | Set a custom DNS-over-HTTPS template URL (requires `--import`) |
+| `--channels LIST` | Comma-separated channels to target: `stable`, `beta`, `nightly`. Default `auto` = all detected |
+| `--persist MODE` | `off` (plist only; may reset after reboot on macOS 13+) or `on` (install a durable Apple Configuration Profile). Omitting reuses whatever mode is currently installed; falls back to `off` for a fresh install |
+| `-h`, `--help` | Show help |
+
+The JSON export format is cross-platform compatible with `SlimBrave.ps1` and `slimbrave-linux.py`.
+
+---
+
+## Persistence Modes
+
+| Mode | What it does | Persists | User action |
+|------|-------------|----------|-------------|
+| `off` (default) | Writes the managed preferences plist to `/Library/Managed Preferences/com.brave.Browser{,.beta,.nightly}.plist` | May reset on macOS 13+ (Apple Silicon) | `sudo` only |
+| `on` | Installs an Apple Configuration Profile via System Settings → General → Device Management | Yes — durable across reboots | `sudo` + one-time GUI install |
+
+---
+
+## Keyboard Reference
+
+The TUI uses the same keys as the Linux version:
+
+| Key | Action |
+|-----|--------|
+| **Up** / **Down** | Move the cursor; Down past the last row jumps to the button row |
+| **PageUp** / **PageDown** | Move one screenful |
+| **Home** / **End** | Jump to the first / last row |
+| **Left** / **Right** | Cycle a selector, fold/unfold a category header, or move along the button row |
+| **Space** | Toggle a checkbox, cycle a selector, fold or unfold a header |
+| **Enter** | Same as Space, and also presses the focused button |
+| `c` | Fold every section; or unfold them all when they are already folded |
+| `/` | Filter rows by name |
+| `d` | Show or hide the description pane |
+| **Esc** | Clear the filter; quit when no filter is active |
+| `?` | Show the full key overlay |
+| **Tab** | Move focus between the list and the button row |
+| `q` | Quit |
+
+---
+
+## Policy File Locations
+
+| Persistence mode | Path |
+|-----------------|------|
+| `off` — Stable | `/Library/Managed Preferences/com.brave.Browser.plist` |
+| `off` — Beta | `/Library/Managed Preferences/com.brave.Browser.beta.plist` |
+| `off` — Nightly | `/Library/Managed Preferences/com.brave.Browser.nightly.plist` |
+| `on` | Apple Configuration Profile (no plist written; managed by System Settings → General → Device Management) |
+
+Each installed Brave channel has its own bundle ID and its own plist file, unlike Linux where a single shared JSON covers every channel.

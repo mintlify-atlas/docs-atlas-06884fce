@@ -1,0 +1,291 @@
+---
+title: "Using Presets to Configure SlimBrave Neo Quickly"
+sidebarTitle: "Presets"
+description: "SlimBrave Neo ships six curated presets — from Maximum Privacy to Developer — each a starting point you can fine-tune before applying policies."
+---
+
+## What are presets?
+
+A preset is a **starting point, not a verdict**. Each one pre-fills every relevant control for a specific goal — privacy, performance, parental controls, or staying close to Brave Origin's defaults — but nothing is written to disk until you explicitly apply it. Import a preset, untick (or re-tick) whatever doesn't fit your setup, then press **Apply Settings** (Windows) or **Apply** (Linux/macOS TUI).
+
+<Note>
+Every preset except Strict Parental Controls sets `BackgroundModeEnabled: false`. That policy key doesn't exist on macOS, so on Apple hardware it is silently skipped and the rest of the preset applies unchanged.
+</Note>
+
+No preset ships with "Disable Safe Browsing", "Allow Permissive Referrers", or the two mutually-exclusive Shields overrides.
+
+## Where to find preset files
+
+The `Presets/` directory in the repository root contains a `.json` file for each preset:
+
+```
+SlimBrave-Neo/
+└── Presets/
+    ├── Maximum Privacy Preset.json
+    ├── Balanced Privacy Preset.json
+    ├── Performance Focused Preset.json
+    ├── Developer Preset.json
+    ├── Strict Parental Controls Preset.json
+    └── Brave Origin Preset.json
+```
+
+## Using presets
+
+<Tabs>
+  <Tab title="Windows GUI">
+    Presets appear as **cards** at the top of the window. Each card shows what the preset does and how many policies it sets. Clicking a card (or pressing Space/Enter when it has focus) **loads** the preset — it fills in all the controls but writes nothing to the registry. Review the settings, make any adjustments you want, then press **Apply Settings**.
+  </Tab>
+  <Tab title="Linux / macOS CLI">
+    Pass a preset file to `--import`. The script reads the file, applies every policy it names, and exits. Combine with `--doh-templates` to override or set the DNS template in the same operation.
+
+    <CodeGroup>
+    ```bash Linux
+    sudo python3 slimbrave-linux.py --import "./Presets/Maximum Privacy Preset.json"
+    sudo python3 slimbrave-linux.py --import "./Presets/Balanced Privacy Preset.json" --doh-templates "https://cloudflare-dns.com/dns-query"
+    ```
+
+    ```bash macOS
+    sudo python3 slimbrave-mac.py --import "./Presets/Maximum Privacy Preset.json"
+    sudo python3 slimbrave-mac.py --import "./Presets/Balanced Privacy Preset.json" --persist on
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="Linux / macOS TUI">
+    Press **Import** in the button row at the bottom of the TUI. You will be prompted for a file path. Paste or type the path to a preset file (e.g. `./Presets/Maximum Privacy Preset.json`) and press Enter. The TUI loads the preset's state into all rows — review and adjust before pressing **Apply**.
+  </Tab>
+</Tabs>
+
+---
+
+## The six presets
+
+<AccordionGroup>
+
+<Accordion title="Maximum Privacy Preset" icon="shield-halved">
+
+The most restrictive preset. Shuts every telemetry channel, disables the most fingerprinting vectors, and removes all Brave monetisation features. Read the performance bullet before applying — it also disables developer tools and printing.
+
+**Best for:** journalists, activists, or anyone who wants Brave as private as possible and who has read the trade-offs.
+
+### What it sets
+
+<CardGroup cols={2}>
+  <Card title="Telemetry — all 5 channels off" icon="signal-slash">
+    `MetricsReportingEnabled`, `SafeBrowsingExtendedReportingEnabled`, `UrlKeyedAnonymizedDataCollectionEnabled`, `BraveP3AEnabled`, `BraveStatsPingEnabled` — all disabled.
+    Safe Browsing protection itself stays **on**; only the extended reports are off.
+  </Card>
+  <Card title="Privacy & Security" icon="lock">
+    Disables autofill (addresses and cards), password manager, leak detection, browser sign-in, WebRTC IP exposure, QUIC, network prediction, and alternate error pages. Blocks third-party cookies and payment-method probing. Enables GPC, De-AMP, debouncing, tracking-parameter stripping, and reduced language fingerprinting. Remote debugging blocked. DNS interception probes off. Sideloaded extensions blocked. Basic Auth over HTTP refused. Variations pinned to critical fixes only.
+  </Card>
+  <Card title="Site Permissions" icon="bell-slash">
+    Web Notifications, Location Access, and Motion Sensors are all set to **Block**.
+    <br />*Location is Block, not Ask — maps and delivery sites will need addresses typed manually. Drop the Location row to Ask or Not managed if that is too strict.*
+  </Card>
+  <Card title="Brave Features — all off" icon="circle-minus">
+    Rewards, Wallet, VPN, AI Chat, Local AI, News, Talk, Playlist, Speedreader, Web Discovery, Tor, Sync, and Email Aliases are all disabled.
+  </Card>
+  <Card title="Shields pinned" icon="shield">
+    Ad blocking, fingerprinting protection, strict HTTPS upgrades, capped referrers (Strict Origin), and forget-on-close storage are pinned as managed policy so they cannot be weakened from `brave://settings`.
+  </Card>
+  <Card title="Performance & Bloat" icon="gauge">
+    Background mode, Cast, media recommendations, shopping list, default-browser prompt, search suggestions, translation, and spellcheck are all off. Also disables developer tools, printing, and the built-in PDF viewer (PDFs open in your system viewer).
+  </Card>
+</CardGroup>
+
+<Warning>
+**Developer tools and printing are disabled.** If you need either, use the Developer preset instead, or untick the `DeveloperToolsAvailability` and `PrintingEnabled` rows in the Performance & Bloat section before pressing Apply.
+</Warning>
+
+**DNS:** Left unmanaged. Forcing DoH off would send every query to your ISP in cleartext; forcing it on concentrates visibility at the DoH provider. The right trade-off depends on who you distrust more — set it manually in the DNS section if you have a preference.
+
+</Accordion>
+
+<Accordion title="Balanced Privacy Preset" icon="scale-balanced">
+
+Strong privacy without the operational cost of Maximum Privacy. Keeps the password manager and address autofill, which Maximum Privacy removes.
+
+**Best for:** most users who want meaningful privacy but still rely on convenience features day-to-day.
+
+### What it sets
+
+<CardGroup cols={2}>
+  <Card title="Telemetry — all 5 channels off" icon="signal-slash">
+    Same five channels as Maximum Privacy: metrics, extended Safe Browsing reports, URL-keyed collection, P3A, and stats ping. Safe Browsing itself stays on.
+  </Card>
+  <Card title="Privacy & Security" icon="lock">
+    Blocks third-party cookies, payment-method probing, network prediction, and alternate error pages. Disables QUIC (all traffic falls back to TCP). Restricts WebRTC to proxied connections — this can break in-browser video and voice calls. Enables GPC, De-AMP, debouncing, tracking-parameter stripping, and reduced language fingerprinting. Credit-card autofill off; **address autofill and password manager kept**. Browser sign-in and Sync both disabled. Remote debugging blocked. DNS interception probes off. Enhanced spellcheck web service off (offline spellcheck stays). Sideloaded extensions blocked. Basic Auth over cleartext HTTP refused. Variations limited to critical fixes.
+  </Card>
+  <Card title="Brave Features" icon="circle-minus">
+    Rewards, Wallet, VPN, AI Chat, Local AI, News, Talk, Web Discovery, Tor, Sync, and browser sign-in disabled.
+  </Card>
+  <Card title="Performance" icon="gauge">
+    Background mode, media recommendations, shopping list, and default-browser prompt off.
+  </Card>
+</CardGroup>
+
+<Note>
+Brave Sync and browser sign-in are both disabled, so bookmarks, history, and settings stop syncing across devices. Untick `SyncDisabled` and `BrowserSignin` before Apply if you rely on a sync chain.
+</Note>
+
+**DNS:** `automatic` — Brave selects the fastest secure DNS automatically.
+
+</Accordion>
+
+<Accordion title="Performance Focused Preset" icon="bolt">
+
+Prioritises speed and RAM efficiency over privacy hardening. Removes background weight, forces Memory Saver and hardware acceleration, and strips Brave's monetisation features. Network prediction is **deliberately left on** — prefetch makes browsing faster, which is the right trade for this preset.
+
+**Best for:** users who want a faster, cleaner Brave without extreme privacy trade-offs.
+
+### What it sets
+
+<CardGroup cols={2}>
+  <Card title="Telemetry — 3 channels off" icon="signal-slash">
+    `MetricsReportingEnabled`, `BraveP3AEnabled`, and `BraveStatsPingEnabled` disabled. Safe Browsing and its extended reports are untouched.
+  </Card>
+  <Card title="Privacy (minimal)" icon="lock">
+    De-AMP, debouncing, and tracking-parameter stripping — the three no-cost privacy wins. Nothing else in Privacy & Security is touched. Network prediction deliberately **kept on**.
+  </Card>
+  <Card title="Brave Features" icon="circle-minus">
+    Rewards, Wallet, VPN, AI Chat, Local AI, News, Talk, Playlist, Speedreader, Web Discovery, and Wayback Machine disabled.
+  </Card>
+  <Card title="Performance" icon="gauge">
+    Memory Saver (`HighEfficiencyModeEnabled`) and hardware acceleration (`HardwareAccelerationModeEnabled`) forced on. Background mode, Cast (`EnableMediaRouter`), media recommendations, shopping list, and default-browser prompt off.
+  </Card>
+</CardGroup>
+
+**DNS:** `automatic` — Brave selects the fastest secure DNS automatically.
+
+</Accordion>
+
+<Accordion title="Developer Preset" icon="code">
+
+Removes telemetry and Brave's monetisation features while deliberately keeping everything a developer needs: dev tools, printing, spellcheck, the PDF viewer, QUIC, Sync, and **remote debugging** (required for Puppeteer, Playwright, and `brave://inspect`).
+
+**Best for:** developers who want a clean browser without giving up their toolchain.
+
+### What it sets
+
+<CardGroup cols={2}>
+  <Card title="Telemetry — all 5 channels off" icon="signal-slash">
+    Metrics, extended Safe Browsing reports, URL-keyed collection, P3A, and stats ping all disabled.
+  </Card>
+  <Card title="Privacy (light)" icon="lock">
+    Alternate error pages disabled so you always see the real network error. DNS interception probes off (three fewer phantom lookups in network logs). Enhanced spellcheck web service off (offline spellcheck stays). Variations pinned to critical fixes — the browser won't reshuffle features under your tests. Nothing else in Privacy & Security touched.
+  </Card>
+  <Card title="Brave Features" icon="circle-minus">
+    Rewards, Wallet, VPN, AI Chat, Local AI, News, and Talk disabled. Sync, developer tools, printing, spellcheck, PDF viewer, and QUIC all **kept**.
+  </Card>
+  <Card title="Performance" icon="gauge">
+    Background mode, media recommendations, shopping list, and default-browser prompt off.
+  </Card>
+</CardGroup>
+
+<Tip>
+Remote debugging is left available on purpose. Blocking it (via `RemoteDebuggingAllowed: false`) would break Puppeteer, Playwright, and `brave://inspect` — the tools this preset is designed to preserve.
+</Tip>
+
+**DNS:** `automatic` — Brave selects the fastest secure DNS automatically.
+
+</Accordion>
+
+<Accordion title="Strict Parental Controls Preset" icon="child">
+
+Locks down the browser for supervised use: blocks incognito and guest windows, forces Google SafeSearch and the SafeSites adult filter, blocks all extension installs, and uses Cloudflare for Families as the DNS resolver.
+
+**Best for:** parents, schools, and workplaces that need restricted browsing on a shared machine.
+
+### What it sets
+
+<CardGroup cols={2}>
+  <Card title="Telemetry" icon="signal-slash">
+    P3A analytics and the daily stats ping disabled.
+  </Card>
+  <Card title="Access Controls" icon="ban">
+    Incognito mode blocked (`IncognitoModeAvailability: 1`). Guest mode blocked (`BrowserGuestModeEnabled: false`). All extension installs blocked (`ExtensionInstallBlocklist: ["*"]`). Browser sign-in disabled. Sync disabled.
+  </Card>
+  <Card title="Filtering" icon="filter">
+    Google SafeSearch forced (`ForceGoogleSafeSearch: true`). SafeSites adult filter enabled (`SafeSitesFilterBehavior: 1`). De-AMP, debouncing, tracking-parameter stripping, and reduced language fingerprinting on.
+  </Card>
+  <Card title="Brave Features" icon="circle-minus">
+    Rewards, Wallet, VPN, AI Chat, News, Talk, Web Discovery, Tor, and developer tools disabled. Remote debugging blocked.
+  </Card>
+</CardGroup>
+
+<Warning>
+**SafeSites is a remote lookup, not a local filter.** `SafeSitesFilterBehavior` sends every URL the browser navigates to — including URLs inside frames — to Google's Safe Search API for classification. This is the price of the filter. If sending URLs to Google is not acceptable, untick "Filter Adult Content (SafeSites)" and rely on the DNS filter alone.
+</Warning>
+
+**DNS:** Custom mode — `https://family.cloudflare-dns.com/dns-query` (Cloudflare for Families, blocks malware and adult content).
+
+<Warning>
+**Custom DoH has no plaintext fallback.** Chromium's `secure` mode sends DNS queries over HTTPS only and does not retry against the system resolver on failure. If Cloudflare for Families is unreachable — captive-portal Wi-Fi, some corporate or school networks — **nothing resolves** until you change the DNS mode back to `unmanaged` and re-apply, or reset the policy entirely with `--reset`. Point the template at a resolver you know is reachable on every network the machine uses.
+</Warning>
+
+</Accordion>
+
+<Accordion title="Brave Origin Preset" icon="cube">
+
+Applies the policy half of what [Brave Origin](https://brave.com/origin/) enforces — the same 15 feature kill-switches, using the same policy keys derived from `brave_origin_service_factory.cc` in brave-core. This lets you get Origin's defaults on the standard Brave you already have installed, or on Windows and macOS where Origin is a paid upgrade.
+
+**Best for:** users who want Origin's defaults on standard Brave, or Windows/macOS users.
+
+### What it sets
+
+The 15 keys come directly from brave-core's `brave_origin_service_factory.cc`:
+
+| Policy key | Value |
+|---|---|
+| `BraveP3AEnabled` | `false` |
+| `BraveStatsPingEnabled` | `false` |
+| `BraveRewardsDisabled` | `true` |
+| `BraveWalletDisabled` | `true` |
+| `BraveVPNDisabled` | `true` |
+| `BraveAIChatEnabled` | `false` |
+| `BraveLocalAIEnabled` | `false` |
+| `BraveNewsDisabled` | `true` |
+| `BraveTalkDisabled` | `true` |
+| `BravePlaylistEnabled` | `false` |
+| `BraveWebDiscoveryEnabled` | `false` |
+| `BraveSpeedreaderEnabled` | `false` |
+| `BraveWaybackMachineEnabled` | `false` |
+| `TorDisabled` | `true` |
+| `EmailAliasesEnabled` | `false` |
+
+<Note>
+`PsstEnabled` is deliberately absent. It is not dispatched by any stable Brave build and its feature flag is off everywhere, so SlimBrave Neo doesn't expose it — a switch that does nothing is worse than no switch. It will be added the release Brave makes it real (tracked in AUDIT.md).
+</Note>
+
+**DNS:** Left unmanaged, matching Origin's own behaviour.
+
+### On a machine that only has Brave Origin
+
+13 of the 15 keys name features that Origin removes at **compile time** — they are not in the binary. On a machine whose only Brave is Origin, those 13 rows are shown inert in the TUI (`[-]`, greyed, marked `(built into Origin)`) and are excluded from counts. Importing the preset reports them as built-in and left unmanaged. The remaining two keys — P3A and the stats ping — are unguarded in Origin's binary; a managed value pins them off.
+
+### What policies can't do
+
+Origin also compiles features out of its binary and ships with metrics removed at build time. Policies can't shrink a binary. For the closest match on standard Brave, also enable "Disable Metrics Reporting" alongside this preset.
+
+</Accordion>
+
+</AccordionGroup>
+
+---
+
+## CLI quick-reference
+
+```bash
+# Apply a preset non-interactively (Linux)
+sudo python3 slimbrave-linux.py --import "./Presets/Maximum Privacy Preset.json"
+
+# Apply a preset and override the DNS template (Linux)
+sudo python3 slimbrave-linux.py --import "./Presets/Balanced Privacy Preset.json" --doh-templates "https://cloudflare-dns.com/dns-query"
+
+# Apply a preset with durable macOS Configuration Profile
+sudo python3 slimbrave-mac.py --import "./Presets/Maximum Privacy Preset.json" --persist on
+
+# Apply a preset on macOS without persistence
+sudo python3 slimbrave-mac.py --import "./Presets/Balanced Privacy Preset.json" --persist off
+```
+
+After applying any preset, restart Brave and verify at `brave://policy`.

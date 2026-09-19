@@ -1,0 +1,79 @@
+---
+title: "Privacy & Security Policies in SlimBrave Neo"
+sidebarTitle: "Privacy & Security"
+description: "Nineteen privacy and security policies covering autofill, WebRTC, cookies, tracking, browser sign-in, DNS interception, and more."
+---
+
+This category contains nineteen policies that reduce Brave's data-sharing footprint, harden the network stack, and close several browser-level attack surfaces. Policies range from low-risk quality-of-life improvements (De-AMP, debouncing, tracking parameter stripping) to high-impact changes with known compatibility trade-offs (WebRTC, QUIC, third-party cookies, remote debugging). Read the caveats column before enabling rows that affect authentication or developer tooling.
+
+## Policy Reference
+
+| Policy Name | Policy Key | Value Written | What It Does | Caveats |
+|---|---|---|---|---|
+| Disable Safe Browsing | `SafeBrowsingProtectionLevel` | `0` | Turns Safe Browsing fully off, removing phishing and malware interstitials. | **Security downgrade.** Brave routes Safe Browsing lookups through its own proxy — Google never sees visited URLs. The privacy gain is near-zero; the cost is real. **Excluded from every preset.** |
+| Disable Autofill (Addresses) | `AutofillAddressEnabled` | `false` | Stops Brave from saving or auto-filling street addresses in web forms. | None. |
+| Disable Autofill (Credit Cards) | `AutofillCreditCardEnabled` | `false` | Stops Brave from saving or auto-filling credit card numbers in web forms. | None. |
+| Disable Password Manager | `PasswordManagerEnabled` | `false` | Disables the built-in password manager (no save prompts, no autofill). | Recommended only if you use a dedicated password manager. |
+| Disable Password Leak Detection | `PasswordLeakDetectionEnabled` | `false` | Stops the online check that compares saved credentials against known breach lists. | None. |
+| Disable Browser Sign-in | `BrowserSignin` | `0` | Prevents signing in to the browser itself with an account. | **Requires a browser restart.** |
+| Enable Global Privacy Control | `BraveGlobalPrivacyControlEnabled` | `true` | Sends the GPC signal with every request, telling sites not to sell or share your data. | Legally binding under CCPA and similar regulations in some regions. |
+| Enable De-AMP | `BraveDeAmpEnabled` | `true` | Skips Google AMP pages and loads the publisher's original page instead. | None. |
+| Enable Debouncing | `BraveDebouncingEnabled` | `true` | Skips known tracking redirects and navigates straight to the final destination URL. | Rarely breaks anything. |
+| Strip Tracking URL Parameters | `BraveTrackingQueryParametersFilteringEnabled` | `true` | Removes known tracking parameters (`fbclid`, `gclid`, `mc_eid`, …) from URLs before they load. | None. |
+| Reduce Language Fingerprinting | `BraveReduceLanguageEnabled` | `true` | Reports a generic language configuration to sites, making the browser harder to fingerprint. | None. |
+| Disable WebRTC IP Leak | `WebRtcIPHandling` | `"disable_non_proxied_udp"` | Restricts WebRTC to proxied connections so calls can't expose the real IP address behind a VPN or proxy. | **Can break in-browser video and voice calls** on some platforms or conferencing tools. |
+| Disable QUIC Protocol | `QuicAllowed` | `false` | Forces all traffic to TCP by disabling HTTP/3 (QUIC). | **Requires a browser restart.** May slightly slow some Google services. Useful when a firewall or filter can't inspect QUIC. |
+| Disable Network Prediction | `NetworkPredictionOptions` | `2` | Stops Brave from pre-resolving DNS and pre-connecting to links you have not yet clicked. | May make perceived page-load slightly slower when prefetch would have been correct. |
+| Block Third Party Cookies | `BlockThirdPartyCookies` | `true` | Blocks cookies set by domains other than the site currently being visited. | Can break some embedded logins and federated authentication flows. |
+| Block Payment Method Probing | `PaymentMethodQueryEnabled` | `false` | Sites' `canMakePayment()` always returns "none saved" — they cannot detect whether payment methods are stored. | None. |
+| Disable Alternate Error Pages | `AlternateErrorPagesEnabled` | `false` | Uses plain local error pages for navigation errors instead of a web-service-assisted suggestion page. | Brave already ships this off by default; the policy pins it. |
+| Block Remote Debugging | `RemoteDebuggingAllowed` | `false` | Closes the remote debugging port and pipe used by automation tools to drive the browser and read cookies and sessions. | **Breaks Puppeteer, Playwright, and `brave://inspect`.** "Disable Developer Tools" does not cover this attack surface. |
+| Disable DNS Interception Probes | `DNSInterceptionChecksEnabled` | `false` | Stops Brave from resolving three random hostnames at startup and on every network change to detect DNS hijacking. | Those probe lookups are visible to your ISP or DoH resolver and mark each browser launch. |
+| Require HTTPS for Basic Auth | `BasicAuthOverHttpEnabled` | `false` | Refuses HTTP Basic authentication over plain HTTP so credentials are never sent in the clear. | **Breaks logins on legacy HTTP-only routers, printers, and appliances.** |
+
+---
+
+## Detailed Notes
+
+### Safe Browsing — excluded from every preset
+
+`SafeBrowsingProtectionLevel: 0` is exposed for users who have a specific reason to disable it, but it is **not set by any preset**. Brave proxies Safe Browsing hash lookups through `https://safebrowsing.brave.com` — Google's servers never see the URLs being checked. Disabling it removes phishing and malware interstitials for essentially no privacy gain.
+
+### Browser Sign-in — restart required
+
+`BrowserSignin: 0` prevents account sign-in to the browser profile. It is distinct from the Brave Sync policy (`SyncDisabled`). Both can be set independently. The policy takes effect after a restart.
+
+### WebRTC IP handling
+
+The value `"disable_non_proxied_udp"` is a Chromium string enum — not a boolean. It restricts WebRTC to the proxied network path. Direct and mDNS-based peer connections are blocked, which prevents real-IP exposure but can cause call-quality degradation or complete failure on platforms that require direct UDP.
+
+```json
+{ "WebRtcIPHandling": "disable_non_proxied_udp" }
+```
+
+### Remote Debugging vs. Developer Tools
+
+These two policies address different attack surfaces:
+
+| Policy | Key | What it blocks |
+|---|---|---|
+| Block Remote Debugging | `RemoteDebuggingAllowed: false` | The `--remote-debugging-port` / `--remote-debugging-pipe` interface. CDP-based automation tools (Puppeteer, Playwright) and `brave://inspect`. |
+| Disable Developer Tools | `DeveloperToolsAvailability: 2` | The in-browser DevTools panel (F12). Does **not** block the remote debugging port. |
+
+For a locked-down machine, both should be set. For a developer machine, neither should.
+
+### DNS Interception Probes
+
+At launch and on every network change, Brave resolves three randomly-generated hostnames to check whether a local DNS provider is intercepting queries (returning results for names that should not resolve). These probes are harmless in intent but leave a network fingerprint — three NXDOMAIN lookups on every browser start, visible to your ISP or DoH resolver. Setting `DNSInterceptionChecksEnabled: false` suppresses them.
+
+<Warning>
+  "Disable Safe Browsing" (`SafeBrowsingProtectionLevel: 0`) is a **security downgrade**. It removes protection against phishing sites and malware downloads. It is excluded from every SlimBrave Neo preset. Only enable it if you have independently verified that you do not need Brave's Safe Browsing interstitials.
+</Warning>
+
+<Note>
+  "Block Remote Debugging" (`RemoteDebuggingAllowed: false`) closes a cookie-theft and session-hijack vector that "Disable Developer Tools" does not cover. If you use Puppeteer, Playwright, or `brave://inspect`, do not set this policy.
+</Note>
+
+<Note>
+  "Require HTTPS for Basic Auth" (`BasicAuthOverHttpEnabled: false`) will break login on any device that serves its admin panel over plain HTTP — home routers, some network printers, and older appliances. Test before deploying on a machine used to manage such hardware.
+</Note>

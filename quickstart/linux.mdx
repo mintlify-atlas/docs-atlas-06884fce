@@ -1,0 +1,189 @@
+---
+title: "Get Started with SlimBrave Neo on Linux"
+sidebarTitle: "Linux"
+description: "Run the SlimBrave Neo curses TUI or use CLI flags for automation on Linux. Python 3 stdlib only — no pip install, no external dependencies."
+---
+
+## Requirements
+
+- Python 3.9+ (no external packages — stdlib only)
+- Root privileges (`sudo`)
+- Brave Browser installed (any packaging: deb, rpm, Flatpak, Snap, AUR, `brave-origin`)
+
+---
+
+<Steps>
+
+<Step title="Clone the repository">
+
+```bash
+git clone https://github.com/ChaoticSi1ence/SlimBrave-Neo.git
+cd SlimBrave-Neo
+```
+
+No `pip install`, no `jq`, no external dependencies. Just Python 3 and `sudo`.
+
+</Step>
+
+<Step title="Launch the TUI">
+
+```bash
+sudo python3 slimbrave-linux.py
+```
+
+The script opens immediately in your terminal as a curses interface. It auto-detects every installed Brave channel (Stable, Beta, Nightly, Dev, Origin) and reads any existing policy file before drawing the screen, so the TUI always opens showing what is actually enforced — a clean machine opens with everything unchecked.
+
+<Note>
+  **Brave Origin detected?** If the only Brave on your machine is Brave Origin,
+  the 13 rows for features Origin removes at build time — Rewards, Wallet, VPN,
+  Leo, Local AI, News, Talk, Playlist, Web Discovery, Speedreader, Tor, Email
+  Aliases, and Wayback Machine — are shown inert: marked `[-]`, greyed, labelled
+  `(built into Origin)`, and excluded from section counts. A policy for a
+  feature that isn't in the binary would switch nothing. If regular Brave is
+  installed beside Origin, every row stays live — the single shared policy file
+  serves both.
+</Note>
+
+</Step>
+
+<Step title="Navigate the TUI">
+
+The interface is divided into a scrollable list and a button row underneath.
+
+**Categories and folding:** The list opens with seven collapsible categories — Telemetry & Reporting, Privacy & Security, Site Permissions, Access Controls, Brave Features, Shields & Content Protection, and Performance & Bloat — followed by a DNS Over HTTPS section. Each category header shows a `n/m on` count of how many policies under it are actively managed. The count updates live as you toggle rows, so a folded section still tells you whether anything inside it is set.
+
+- **Left** on a header folds it; **Right** unfolds it; **Space** or **Enter** toggles.
+- `c` folds every section at once — or unfolds them all if they are already folded.
+- On launch, sections that contain a managed policy open automatically; the rest stay folded for a clean overview.
+
+**Description pane:** A boxed pane below the list shows the plain-English description of whatever the cursor is on — the same text shown under each row in the Windows GUI. `d` hides or shows the pane. On terminals too short to hold both list and pane, the pane steps aside on its own.
+
+**Search:** Press `/` to filter rows by name (and description). Matches narrow as you type; the hint line reports the count. Only matching rows and their owning headers remain on screen. Folded sections are searched too — a fold cannot hide a match. **Esc** clears the filter and restores fold states as they were before you searched.
+
+**Site Permissions rows** render as `Web Notifications: < Block >` — cycled with **Left/Right** or stepped forward with **Space/Enter**, the same as the DNS mode selector.
+
+</Step>
+
+<Step title="Load a preset (optional)">
+
+To start from a preset rather than toggling rows one by one, press **Tab** to move focus to the button row and navigate to **Import**. When prompted, enter the path to a preset file from the `Presets/` directory:
+
+```
+./Presets/Maximum Privacy Preset.json
+./Presets/Balanced Privacy Preset.json
+./Presets/Performance Focused Preset.json
+./Presets/Developer Preset.json
+./Presets/Strict Parental Controls Preset.json
+./Presets/Brave Origin Preset.json
+```
+
+Loading a preset fills in the controls but writes nothing to disk — you can review and untick rows before pressing **Apply**.
+
+<Tip>
+  For a fully non-interactive preset import, use CLI mode instead: `sudo python3
+  slimbrave-linux.py --import "./Presets/Maximum Privacy Preset.json"`.
+  This applies the preset and writes the policy file in one command.
+</Tip>
+
+</Step>
+
+<Step title="Toggle individual policies">
+
+Use **Up/Down** (or **PageUp/PageDown/Home/End**) to move the cursor. Toggle policies with **Space** or **Enter**:
+
+- **Checkboxes** flip on/off.
+- **Selectors** (Site Permissions, DNS mode) cycle through states with **Left/Right**, or step forward with **Space/Enter**.
+- The DNS Over HTTPS section at the bottom has an inline editable template URL field — navigate to it and type directly. `secure` and `custom` modes require a non-empty template URL; the TUI refuses to apply without one.
+
+Any row left unchecked / on *Not managed* is cleanly absent from the written policy — Brave's own defaults stand for that key.
+
+</Step>
+
+<Step title="Apply the policy">
+
+Press **Tab** to move focus to the button row, navigate to **Apply**, and press **Enter**. SlimBrave Neo writes:
+
+```
+/etc/brave/policies/managed/slimbrave.json
+```
+
+This single file is shared across all installed Brave channels (Stable, Beta, Nightly, Dev, and Brave Origin) — brave-core hardcodes this directory for every Linux build, so no per-channel selector is needed. The apply is a full overwrite: unchecked policies are cleanly removed from the file, leaving no stale keys from previous runs.
+
+If Brave is running when you apply, a warning is shown — the policies take effect after you restart Brave.
+
+</Step>
+
+<Step title="Restart Brave and verify">
+
+Close all Brave windows, then relaunch. Navigate to `brave://policy` and confirm that your applied policies appear in the list, sourced from a platform-level managed location.
+
+To remove all policies at any time, press **Tab** to reach the button row and choose **Reset** (confirm with Enter), or use the CLI:
+
+```bash
+sudo python3 slimbrave-linux.py --reset
+```
+
+</Step>
+
+</Steps>
+
+---
+
+## CLI Mode (Non-Interactive)
+
+All functionality is available without the TUI, useful for scripting, automation, or running over SSH.
+
+```bash
+# Apply a preset non-interactively
+sudo python3 slimbrave-linux.py --import "./Presets/Maximum Privacy Preset.json"
+
+# Export the current policy to a JSON file
+sudo python3 slimbrave-linux.py --export ~/SlimBraveNeoSettings.json
+
+# Remove the managed policy file
+sudo python3 slimbrave-linux.py --reset
+```
+
+### Full CLI Flag Reference
+
+| Flag | Description |
+|------|-------------|
+| `--import PATH` | Import a SlimBrave Neo JSON config and apply policies |
+| `--export PATH` | Export the current policy to a SlimBrave Neo JSON config |
+| `--reset` | Remove the managed policy file |
+| `--policy-file PATH` | Override the policy file path (must resolve inside `/etc/brave/policies/managed` or `/etc/chromium/policies/managed`) |
+| `--doh-templates URL` | Set a custom DNS-over-HTTPS template URL (requires `--import`) |
+| `--channels LIST` | Comma-separated channels for prefs-repair / process detection: `stable,beta,nightly,dev,origin,origin-beta,origin-nightly`. Default `auto` = all detected. Linux always writes a single shared policy file regardless. |
+| `-h`, `--help` | Show help |
+
+The exported JSON format is cross-platform compatible with `SlimBrave.ps1` and `slimbrave-mac.py` — settings files transfer freely between all three platforms.
+
+---
+
+## Keyboard Reference
+
+| Key | Action |
+|-----|--------|
+| **Up** / **Down** | Move the cursor; Down past the last row jumps to the button row |
+| **PageUp** / **PageDown** | Move one screenful |
+| **Home** / **End** | Jump to the first / last row |
+| **Left** / **Right** | Cycle a selector, fold/unfold a category header, or move along the button row |
+| **Space** | Toggle a checkbox, cycle a selector, fold or unfold a header |
+| **Enter** | Same as Space, and also presses the focused button |
+| `c` | Fold every section; or unfold them all when they are already folded |
+| `/` | Filter rows by name |
+| `d` | Show or hide the description pane |
+| **Esc** | Clear the filter; quit when no filter is active |
+| `?` | Show the full key overlay |
+| **Tab** | Move focus between the list and the button row |
+| `q` | Quit |
+
+---
+
+## Policy File Location
+
+```
+/etc/brave/policies/managed/slimbrave.json
+```
+
+This location is shared across **all** installed Brave channels (Stable, Beta, Nightly, Dev, and Brave Origin). No per-channel selector or per-channel file is needed on Linux — brave-core hardcodes this directory for every build. If you have both regular Brave and Brave Origin installed, the one policy file serves both simultaneously.

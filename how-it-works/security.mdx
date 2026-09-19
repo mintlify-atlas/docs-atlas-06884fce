@@ -1,0 +1,223 @@
+---
+title: "Security Model and Elevated Privileges in SlimBrave Neo"
+sidebarTitle: "Security"
+description: "SlimBrave Neo writes only managed policy files and registry keys. Learn exactly what it touches with Administrator or root privileges — and what it never does."
+---
+
+SlimBrave Neo writes Chromium managed enterprise policies — machine-wide settings Brave reads at startup. Writing those requires Administrator on Windows and root (`sudo`) on Linux and macOS. This page documents precisely what the tool does with those privileges.
+
+---
+
+## What SlimBrave Neo never does
+
+On every platform, without exception:
+
+- **Makes no network connections.** The scripts import no HTTP client and shell out to no downloader. There is nothing to phone home with.
+- **Installs no service, daemon, scheduled task, launch agent, or startup entry.** After the script exits, nothing continues running in the background.
+- **Touches no path outside those documented below.** Every write is either a policy location, the Shields-exception scrub described per platform, or the JSON config file you choose in Import/Export.
+- **Makes no binary modifications to Brave.** Policy files and registry keys only.
+
+<Note>
+  **Source code only — always.** There are no `.exe`, `.msi`, `.pkg`, `.dmg` or compiled installers. Every entry point is a human-readable script you can audit before running: `slimbrave-linux.py`, `slimbrave-mac.py`, and `SlimBrave.ps1`. If you see a "SlimBrave Neo installer" anywhere, it is not from this project.
+</Note>
+
+---
+
+## Windows — `SlimBrave.ps1`
+
+### Elevation
+
+The script self-elevates by relaunching itself through UAC (`Start-Process -Verb RunAs`). **Declining the UAC prompt changes nothing** — no policy is applied, no registry key is created.
+
+If you authenticated with separate admin credentials, the elevated relaunch forwards your own profile path and SID so that per-user cleanup (the Shields scrub) targets your account, not the admin account.
+
+### Exactly three write locations
+
+<Steps>
+  <Step title="HKLM policy key (written on Apply only)">
+    ```
+    HKLM:\SOFTWARE\Policies\BraveSoftware\Brave
+    ```
+
+    One registry value per ticked option, plus `DnsOverHttpsMode` and `DnsOverHttpsTemplates` from the DNS section. List policies get numbered subkeys. This key is **created only when you press Apply Settings** — opening the app writes nothing to the registry.
+  </Step>
+  <Step title="HKCU cleanup (values removed only, never written)">
+    ```
+    HKCU:\SOFTWARE\Policies\BraveSoftware\Brave
+    ```
+    or
+    ```
+    HKEY_USERS\<your SID>\SOFTWARE\Policies\BraveSoftware\Brave
+    ```
+    (when elevated as another account)
+
+    SlimBrave Neo **never writes** to the HKCU scope — it only removes values there. This prevents any leftover user-scope policy from silently overriding the machine-scope one you just applied.
+  </Step>
+  <Step title="Legacy Shields exception scrub (Preferences files)">
+    ```
+    %LOCALAPPDATA%\BraveSoftware\<channel>\User Data\<profile>\Preferences
+    ```
+
+    Only the `profile.content_settings.exceptions.braveShields` entries for `http://*,*` and `https://*,*` are deleted — nothing else in the file is read back or changed. The scrub covers:
+    - All channels: Stable, Beta, Nightly, Dev
+    - Every profile: `Default`, `Profile 1`, `Profile 2`, …
+    - Every interactive account on the machine (`S-1-5-21-*` SIDs from the ProfileList registry key)
+
+    **Skipped entirely if Brave is running**, because Brave would overwrite the file on its next save.
+  </Step>
+</Steps>
+
+These entries are a leak from pre-1.x SlimBrave, which wrote content-setting exceptions directly into profile files. Removing the registry policy doesn't roll them back — without the scrub, unchecking "Disable Brave Shields" would leave Shields stuck off.
+
+### Reset is scoped to SlimBrave Neo's own keys
+
+Reset removes only the policy values that SlimBrave Neo manages, in both registry scopes. It does not delete the `Brave` key itself and does not touch other values.
+
+<Note>
+  Values placed by other tools — `ExtensionInstallForcelist`, `URLBlocklist`, `ProxySettings`, and any GPO-managed entries — survive both Apply and Reset untouched.
+</Note>
+
+---
+
+## Linux — `slimbrave-linux.py`
+
+### What root touches
+
+Root is needed for exactly one file:
+
+```
+/etc/brave/policies/managed/slimbrave.json
+```
+
+The file is written with mode `0644` and atomically (temp file → rename). Every Brave channel on Linux reads this directory — brave-core hardcodes it — so a single file covers all channels simultaneously.
+
+### `--policy-file` path restriction
+
+The `--policy-file` flag runs as root. Without a restriction, it combined with `--reset` would allow deleting arbitrary files (e.g. `--policy-file /etc/shadow --reset`). SlimBrave Neo only permits targets inside:
+
+```
+/etc/brave/policies/managed
+/etc/chromium/policies/managed
+```
+
+Any other path is refused immediately.
+
+### Shields scrub: privilege drop to invoking user
+
+The Shields-exception scrub — cleaning `~/.config/BraveSoftware/<channel>/<profile>/Preferences` — runs in a **forked child process that drops to the invoking user's `uid`/`gid`** (resolved from `SUDO_USER`). Root never follows any path component inside a user's home directory. The Flatpak profile path (`~/.var/app/com.brave.Browser`) is also scrubbed the same way when present.
+
+### Reset behavior
+
+`--reset` unlinks only `slimbrave.json`. Nothing else inside `/etc/brave/policies/managed` is touched.
+
+---
+
+## macOS — `slimbrave-mac.py`
+
+### What root touches
+
+<Tabs>
+  <Tab title="--persist off (default)">
+    Root writes plist files for each selected channel:
+
+    ```
+    /Library/Managed Preferences/com.brave.Browser.plist
+    /Library/Managed Preferences/com.brave.Browser.beta.plist
+    /Library/Managed Preferences/com.brave.Browser.nightly.plist
+    ```
+
+    After writing, the script runs `killall cfprefsd` so values take effect immediately without a reboot.
+  </Tab>
+  <Tab title="--persist on">
+    Root stages a Configuration Profile (identifier: `io.github.slimbrave-neo.brave-policy`) into a **private `0700` temp directory**, then hands it to System Settings. **You approve the install yourself** in the Device Management GUI. The tool does not silently install profiles.
+
+    `killall cfprefsd` is still run after the profile is handed off.
+  </Tab>
+</Tabs>
+
+### `--policy-file` path restriction
+
+On macOS, `--policy-file` is restricted to:
+
+```
+/Library/Managed Preferences
+/Library/Preferences
+```
+
+The same reasoning as Linux applies: root + an unrestricted path would allow arbitrary file writes.
+
+### Shields scrub: privilege drop to invoking user
+
+Same model as Linux — the scrub runs in a forked child that drops to `SUDO_USER`'s `uid`/`gid`. Root never reads inside the user's home. The path scrubbed is:
+
+```
+~/Library/Application Support/BraveSoftware/<channel>/<profile>/Preferences
+```
+
+### Reset behavior
+
+`--reset` removes only the plists SlimBrave Neo wrote and removes the Configuration Profile by its identifier. No other managed preference file is touched. If a Configuration Profile was installed, it can also be removed by hand at **System Settings → General → Device Management**.
+
+---
+
+## Verifying authenticity
+
+<CardGroup cols={2}>
+  <Card title="Read the source first" icon="magnifying-glass-code">
+    All three scripts are plain text. Read them before running. There are no compiled binaries — no `.exe`, `.msi`, `.dmg`, or `.pkg` from this project, ever.
+  </Card>
+  <Card title="Use release tags and checksums" icon="lock">
+    Each release publishes SHA-256 checksums in the release notes and as a `SHA256SUMS` file attached to the release tag.
+  </Card>
+</CardGroup>
+
+Verify a download before running it:
+
+<CodeGroup>
+  ```powershell Windows
+  Get-FileHash -Algorithm SHA256 .\SlimBrave.ps1
+  ```
+
+  ```bash Linux
+  sha256sum slimbrave-linux.py
+  ```
+
+  ```bash macOS
+  shasum -a 256 slimbrave-mac.py
+  ```
+</CodeGroup>
+
+Compare the output against the `SHA256SUMS` file published with the release tag. If they differ, do not run the script — re-download from the tagged release and check again.
+
+**The only official source is:**
+```
+https://github.com/ChaoticSi1ence/SlimBrave-Neo
+```
+
+Any other website, installer, or binary claiming to be SlimBrave Neo is not affiliated with this project.
+
+### Reporting vulnerabilities
+
+Use **GitHub Private Vulnerability Reporting** to report security issues:
+
+```
+https://github.com/ChaoticSi1ence/SlimBrave-Neo/security/advisories/new
+```
+
+Please include the affected file and line number, a description of the impact, and steps to reproduce. Do not open a public issue for security reports.
+
+---
+
+## How to undo everything
+
+| Platform | How to undo |
+|---|---|
+| **Windows** | Run the script → press **Reset** |
+| **Linux** | `sudo python3 slimbrave-linux.py --reset` — or directly: `sudo rm /etc/brave/policies/managed/slimbrave.json` |
+| **macOS** | `sudo python3 slimbrave-mac.py --reset` (also removes the Configuration Profile if one was installed) |
+
+After resetting, restart Brave and verify at `brave://policy` — none of the keys SlimBrave Neo manages should remain listed.
+
+<Warning>
+  On Windows, the Shields-exception scrub on Reset is **skipped if Brave is running**. The status bar at the bottom of the window will tell you to close Brave and reset again if profiles still need cleaning.
+</Warning>

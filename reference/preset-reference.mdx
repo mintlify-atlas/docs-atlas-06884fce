@@ -1,0 +1,388 @@
+---
+title: "Built-in Preset Reference for SlimBrave Neo"
+sidebarTitle: "Preset Reference"
+description: "Detailed breakdown of all six SlimBrave Neo presets — which policies each sets, what it leaves unmanaged, and which use case it targets."
+---
+
+## How Presets Work
+
+Presets are **starting points, not verdicts**. Every preset ships as a JSON file in the `Presets/` directory. Importing a preset fills in the controls — nothing is written until you press Apply (TUI / Windows GUI) or the import completes (CLI). Adjust anything you disagree with before committing.
+
+### How to apply a preset
+
+<Tabs>
+  <Tab title="CLI (Linux / macOS)">
+    ```bash
+    sudo python3 slimbrave-linux.py --import "./Presets/Maximum Privacy Preset.json"
+    sudo python3 slimbrave-mac.py   --import "./Presets/Balanced Privacy Preset.json"
+    ```
+  </Tab>
+  <Tab title="TUI (Linux / macOS)">
+    Press **Import** in the button row at the bottom of the TUI, enter the path to the preset file, and press Enter. The controls update to reflect the preset. Press **Apply** to write the policy.
+  </Tab>
+  <Tab title="Windows GUI">
+    Click the preset's card in the Presets section. Review the populated controls. Press **Apply Settings** to write the policies to the registry. Nothing is committed until that button is pressed.
+  </Tab>
+</Tabs>
+
+### Shared rules across all presets
+
+- **None** of the presets sets "Disable Safe Browsing" — Brave proxies Safe Browsing lookups through its own servers, so disabling the protection costs phishing and malware interstitials for no privacy gain. The toggle remains available manually.
+- **None** of the presets sets "Allow Permissive Referrers" (`DefaultBraveReferrersSetting: 1`), which would make referrer weakening global as managed policy.
+- **None** of the presets sets the mutually-exclusive Shields overrides ("Disable Brave Shields" and "Force Shields On") simultaneously.
+- Every preset **except Strict Parental Controls** sets `BackgroundModeEnabled: false` (Windows/Linux only). macOS does not have this policy key; on macOS the key is silently skipped and the rest of the preset applies unchanged.
+
+---
+
+## Presets
+
+<AccordionGroup>
+
+<Accordion title="Maximum Privacy Preset">
+
+**File:** `./Presets/Maximum Privacy Preset.json`
+
+**Best for:** Paranoid users, journalists, activists, or anyone who wants Brave locked down as far as it will go — provided they read the performance note below first.
+
+<Warning>
+  This preset disables **developer tools**, **printing**, and the **built-in PDF viewer** (PDFs download and open in your system viewer). It also disables spellcheck, search suggestions, and translation. If you need developer tools or printing, use the **Developer Preset** instead, or untick those rows in the Performance & Bloat section before applying.
+</Warning>
+
+### Policies set
+
+| Policy Key | Value | What it does |
+|-----------|-------|--------------|
+| `MetricsReportingEnabled` | `false` | Stops the daily usage ping that counts this install in Brave's active-user statistics |
+| `SafeBrowsingExtendedReportingEnabled` | `false` | Disables extended Safe Browsing reports sent to Google; standard Safe Browsing lookups (proxied through Brave's servers) stay on |
+| `UrlKeyedAnonymizedDataCollectionEnabled` | `false` | Stops URL-keyed anonymized data collection |
+| `BraveP3AEnabled` | `false` | Stops P3A (Privacy-Preserving Product Analytics) pings |
+| `BraveStatsPingEnabled` | `false` | Stops the daily stats ping |
+| `AutofillAddressEnabled` | `false` | Disables address autofill |
+| `AutofillCreditCardEnabled` | `false` | Disables credit-card autofill |
+| `PasswordManagerEnabled` | `false` | Disables the built-in password manager |
+| `PasswordLeakDetectionEnabled` | `false` | Disables the online breach-list credential check |
+| `BrowserSignin` | `0` | Disables browser sign-in (requires restart) |
+| `BraveGlobalPrivacyControlEnabled` | `true` | Sends the GPC signal to all sites |
+| `BraveDeAmpEnabled` | `true` | Strips Google AMP wrappers |
+| `BraveDebouncingEnabled` | `true` | Skips known tracking redirect hops |
+| `BraveTrackingQueryParametersFilteringEnabled` | `true` | Strips tracking query parameters from URLs |
+| `BraveReduceLanguageEnabled` | `true` | Reduces language fingerprinting |
+| `WebRtcIPHandling` | `"disable_non_proxied_udp"` | Disables WebRTC IP leak (only proxied UDP connections allowed) |
+| `QuicAllowed` | `false` | Disables QUIC protocol; all traffic falls back to TCP (requires restart) |
+| `NetworkPredictionOptions` | `2` | Disables DNS prefetch and preconnect for links you never click |
+| `BlockThirdPartyCookies` | `true` | Blocks all third-party cookies |
+| `PaymentMethodQueryEnabled` | `false` | Blocks payment-method probing (`canMakePayment` always answers "none saved") |
+| `AlternateErrorPagesEnabled` | `false` | Disables alternate error pages (navigation errors show the raw network error) |
+| `DefaultNotificationsSetting` | `2` | Blocks web notifications for all sites |
+| `DefaultGeolocationSetting` | `2` | Blocks location access for all sites (maps and delivery sites need addresses typed manually) |
+| `DefaultSensorsSetting` | `2` | Blocks motion sensors for all sites |
+| `BraveRewardsDisabled` | `true` | Disables Brave Rewards |
+| `BraveWalletDisabled` | `true` | Disables Brave Wallet |
+| `BraveVPNDisabled` | `true` | Disables Brave VPN |
+| `BraveAIChatEnabled` | `false` | Disables Brave AI Chat (Leo) |
+| `BraveNewsDisabled` | `true` | Disables Brave News |
+| `BraveTalkDisabled` | `true` | Disables Brave Talk |
+| `BravePlaylistEnabled` | `false` | Disables Brave Playlist |
+| `BraveWebDiscoveryEnabled` | `false` | Disables Web Discovery Project |
+| `BraveSpeedreaderEnabled` | `false` | Disables Speedreader |
+| `TorDisabled` | `true` | Disables Tor (removes "New private window with Tor") |
+| `SyncDisabled` | `true` | Disables Brave Sync |
+| `EmailAliasesEnabled` | `false` | Disables Email Aliases |
+| `DefaultBraveAdblockSetting` | `2` | Pins ad blocking on as managed policy |
+| `DefaultBraveFingerprintingV2Setting` | `3` | Pins fingerprinting protection on as managed policy |
+| `DefaultBraveHttpsUpgradeSetting` | `2` | Forces strict HTTPS upgrades (sites that can't serve HTTPS show an interstitial) |
+| `DefaultBraveReferrersSetting` | `2` | Caps referrers (strict origin) as managed policy |
+| `DefaultBraveRemember1PStorageSetting` | `2` | Forgets first-party storage on close as managed policy |
+| `BackgroundModeEnabled` | `false` | Disables background mode (Windows/Linux only; skipped on macOS) |
+| `EnableMediaRouter` | `false` | Disables Cast / Media Router and its background LAN device discovery (requires restart) |
+| `ShoppingListEnabled` | `false` | Disables the shopping list |
+| `AlwaysOpenPdfExternally` | `true` | Opens PDFs in your system viewer instead of the built-in viewer |
+| `TranslateEnabled` | `false` | Disables built-in translation |
+| `SpellcheckEnabled` | `false` | Disables spellcheck entirely (offline and online) |
+| `SearchSuggestEnabled` | `false` | Disables search suggestions |
+| `PrintingEnabled` | `false` | Disables printing |
+| `DefaultBrowserSettingEnabled` | `false` | Disables the default browser prompt |
+| `DeveloperToolsAvailability` | `2` | Disables developer tools |
+| `BraveWaybackMachineEnabled` | `false` | Disables the Wayback Machine prompt |
+| `BraveLocalAIEnabled` | `false` | Disables on-device AI and its history index (Brave 1.94+; requires restart) |
+| `DNSInterceptionChecksEnabled` | `false` | Disables the three random-hostname DNS probes Brave runs at every launch |
+| `RemoteDebuggingAllowed` | `false` | Blocks remote debugging (closes the CDP port; breaks Puppeteer/Playwright) |
+| `BasicAuthOverHttpEnabled` | `false` | Refuses HTTP Basic Auth over cleartext (breaks legacy HTTP-only routers and appliances) |
+| `BlockExternalExtensions` | `true` | Blocks the silent registry / drop-in-file extension install channel |
+| `ChromeVariations` | `1` | Limits Chromium/Brave variations to critical security fixes only (A/B experiments stop; security killswitches still arrive) |
+
+### DNS
+
+Not set (unmanaged). The preset deliberately leaves DNS mode to the user's preference — see the DNS section of the TUI or pass `--doh-templates` on the CLI.
+
+### Not set (intentionally)
+
+- `DefaultWebUsbGuardSetting`, `DefaultSerialGuardSetting`, `DefaultWebHidGuardSetting`, `DefaultLocalFontsSetting`, `DefaultWindowManagementSetting` — blocking these breaks hardware wallets, in-browser firmware flashers, and some security keys. Set them to Block manually for the full lockdown.
+- `SafeBrowsingEnabled` — disabling Safe Browsing is a security downgrade; excluded from every preset.
+- `IncognitoModeAvailability: 2` — no longer forces incognito-only browsing; `DefaultBraveRemember1PStorageSetting: 2` (forget-on-close storage) covers the privacy goal without the login-breaking side effects.
+
+</Accordion>
+
+<Accordion title="Balanced Privacy Preset">
+
+**File:** `./Presets/Balanced Privacy Preset.json`
+
+**Best for:** Most users who want meaningful privacy improvements while keeping convenience features — the password manager, address autofill, and Shields left at Brave's own defaults.
+
+### Policies set
+
+| Policy Key | Value | What it does |
+|-----------|-------|--------------|
+| `MetricsReportingEnabled` | `false` | Stops the daily usage ping |
+| `SafeBrowsingExtendedReportingEnabled` | `false` | Stops extended Safe Browsing reports; standard lookups stay on |
+| `UrlKeyedAnonymizedDataCollectionEnabled` | `false` | Stops URL-keyed anonymized data collection |
+| `BraveP3AEnabled` | `false` | Stops P3A analytics pings |
+| `BraveStatsPingEnabled` | `false` | Stops the daily stats ping |
+| `AutofillCreditCardEnabled` | `false` | Disables credit-card autofill (address autofill deliberately kept) |
+| `BrowserSignin` | `0` | Disables browser sign-in (requires restart) |
+| `BraveGlobalPrivacyControlEnabled` | `true` | Sends the GPC signal to all sites |
+| `BraveDeAmpEnabled` | `true` | Strips Google AMP wrappers |
+| `BraveDebouncingEnabled` | `true` | Skips known tracking redirect hops |
+| `BraveTrackingQueryParametersFilteringEnabled` | `true` | Strips tracking query parameters from URLs |
+| `BraveReduceLanguageEnabled` | `true` | Reduces language fingerprinting |
+| `WebRtcIPHandling` | `"disable_non_proxied_udp"` | Restricts WebRTC to proxied connections (can break in-browser video and voice calls) |
+| `QuicAllowed` | `false` | Disables QUIC; all traffic falls back to TCP |
+| `NetworkPredictionOptions` | `2` | Disables DNS prefetch and preconnect |
+| `BlockThirdPartyCookies` | `true` | Blocks all third-party cookies |
+| `PaymentMethodQueryEnabled` | `false` | Blocks payment-method probing |
+| `AlternateErrorPagesEnabled` | `false` | Disables alternate error pages |
+| `BraveRewardsDisabled` | `true` | Disables Brave Rewards |
+| `BraveWalletDisabled` | `true` | Disables Brave Wallet |
+| `BraveVPNDisabled` | `true` | Disables Brave VPN |
+| `BraveAIChatEnabled` | `false` | Disables Brave AI Chat (Leo) |
+| `BraveNewsDisabled` | `true` | Disables Brave News |
+| `BraveTalkDisabled` | `true` | Disables Brave Talk |
+| `BraveWebDiscoveryEnabled` | `false` | Disables Web Discovery Project |
+| `TorDisabled` | `true` | Disables Tor |
+| `SyncDisabled` | `true` | Disables Brave Sync (and implicitly browser sign-in for sync) |
+| `BackgroundModeEnabled` | `false` | Disables background mode (Windows/Linux only; skipped on macOS) |
+| `ShoppingListEnabled` | `false` | Disables the shopping list |
+| `DefaultBrowserSettingEnabled` | `false` | Disables the default browser prompt |
+| `BraveLocalAIEnabled` | `false` | Disables on-device AI (Brave 1.94+; requires restart) |
+| `DNSInterceptionChecksEnabled` | `false` | Disables per-launch DNS interception probes |
+| `RemoteDebuggingAllowed` | `false` | Blocks remote debugging |
+| `BasicAuthOverHttpEnabled` | `false` | Refuses HTTP Basic Auth over cleartext |
+| `BlockExternalExtensions` | `true` | Blocks the silent sideload-extension install channel |
+| `ChromeVariations` | `1` | Limits variations to critical security fixes |
+| `SpellCheckServiceEnabled` | `false` | Disables the enhanced (Google) spellcheck web service while keeping offline spellcheck |
+
+### DNS
+
+`DnsMode: automatic` — Brave chooses the fastest available secure DNS resolver automatically.
+
+### Deliberately kept (not disabled)
+
+- **Password manager** (`PasswordManagerEnabled`) — left on
+- **Address autofill** (`AutofillAddressEnabled`) — left on
+- **Shields defaults** — not pinned; Brave's own defaults apply and the user can adjust per-site
+- **Printing, developer tools, PDF viewer, search suggestions** — all left unmanaged
+
+### Not set (intentionally)
+
+- `SafeBrowsingEnabled` — excluded from every preset
+- `DefaultBraveReferrersSetting: 1` (Allow Permissive Referrers) — excluded from every preset
+
+</Accordion>
+
+<Accordion title="Performance Focused Preset">
+
+**File:** `./Presets/Performance Focused Preset.json`
+
+**Best for:** Users who want a faster, cleaner Brave without extreme privacy tweaks. Network prediction is deliberately left on — prefetch makes browsing faster at a small privacy cost, which is the right trade-off for this preset.
+
+### Policies set
+
+| Policy Key | Value | What it does |
+|-----------|-------|--------------|
+| `MetricsReportingEnabled` | `false` | Stops the daily usage ping |
+| `BraveP3AEnabled` | `false` | Stops P3A analytics pings |
+| `BraveStatsPingEnabled` | `false` | Stops the daily stats ping |
+| `BraveDeAmpEnabled` | `true` | Strips AMP wrappers (no-cost privacy win, faster page loads) |
+| `BraveDebouncingEnabled` | `true` | Skips tracking redirect hops (faster navigation) |
+| `BraveTrackingQueryParametersFilteringEnabled` | `true` | Strips tracking query parameters |
+| `BraveRewardsDisabled` | `true` | Disables Brave Rewards |
+| `BraveWalletDisabled` | `true` | Disables Brave Wallet |
+| `BraveVPNDisabled` | `true` | Disables Brave VPN |
+| `BraveAIChatEnabled` | `false` | Disables Brave AI Chat (Leo) |
+| `BraveNewsDisabled` | `true` | Disables Brave News |
+| `BraveTalkDisabled` | `true` | Disables Brave Talk |
+| `BravePlaylistEnabled` | `false` | Disables Brave Playlist |
+| `BraveWebDiscoveryEnabled` | `false` | Disables Web Discovery Project |
+| `BraveSpeedreaderEnabled` | `false` | Disables Speedreader (reduces background processing) |
+| `BackgroundModeEnabled` | `false` | Disables background mode (Windows/Linux only; skipped on macOS) |
+| `HighEfficiencyModeEnabled` | `true` | Enables Memory Saver — discards inactive tabs to free RAM |
+| `HardwareAccelerationModeEnabled` | `true` | Forces hardware acceleration on for rendering and video decode (requires restart) |
+| `EnableMediaRouter` | `false` | Disables Cast / Media Router and LAN device discovery (requires restart) |
+| `ShoppingListEnabled` | `false` | Disables the shopping list |
+| `DefaultBrowserSettingEnabled` | `false` | Disables the default browser prompt |
+| `BraveWaybackMachineEnabled` | `false` | Disables the Wayback Machine prompt |
+| `BraveLocalAIEnabled` | `false` | Disables on-device AI model download and history index (Brave 1.94+) |
+
+### DNS
+
+`DnsMode: automatic` — automatic DoH for a balance of speed and security.
+
+### Deliberately left on (not disabled)
+
+- **Network prediction** (`NetworkPredictionOptions`) — left unmanaged; prefetch is intentional for performance
+- **WebRTC** — unrestricted; video and voice calls work normally
+- **QUIC** — left on; QUIC is faster than TCP for many connections
+- **Password manager, autofill, spellcheck, developer tools, printing** — all unmanaged
+
+</Accordion>
+
+<Accordion title="Developer Preset">
+
+**File:** `./Presets/Developer Preset.json`
+
+**Best for:** Developers who need developer tools, a working network stack, printing, Sync, and remote debugging — while still cleaning telemetry and Brave's monetised features out of the way.
+
+<Note>
+  Remote debugging is deliberately **left available**. Blocking it would break Puppeteer, Playwright, and `brave://inspect`. If you don't need remote debugging, you can add `RemoteDebuggingAllowed: false` manually after importing.
+</Note>
+
+### Policies set
+
+| Policy Key | Value | What it does |
+|-----------|-------|--------------|
+| `MetricsReportingEnabled` | `false` | Stops the daily usage ping |
+| `SafeBrowsingExtendedReportingEnabled` | `false` | Stops extended Safe Browsing reports; standard lookups stay on |
+| `UrlKeyedAnonymizedDataCollectionEnabled` | `false` | Stops URL-keyed anonymized data collection |
+| `BraveP3AEnabled` | `false` | Stops P3A analytics pings |
+| `BraveStatsPingEnabled` | `false` | Stops the daily stats ping |
+| `AlternateErrorPagesEnabled` | `false` | Disables alternate error pages — you always see the real network error, never a suggestion page |
+| `BraveRewardsDisabled` | `true` | Disables Brave Rewards |
+| `BraveWalletDisabled` | `true` | Disables Brave Wallet |
+| `BraveVPNDisabled` | `true` | Disables Brave VPN |
+| `BraveAIChatEnabled` | `false` | Disables Brave AI Chat (Leo) |
+| `BraveNewsDisabled` | `true` | Disables Brave News |
+| `BraveTalkDisabled` | `true` | Disables Brave Talk |
+| `BackgroundModeEnabled` | `false` | Disables background mode (Windows/Linux only; skipped on macOS) |
+| `ShoppingListEnabled` | `false` | Disables the shopping list |
+| `DefaultBrowserSettingEnabled` | `false` | Disables the default browser prompt |
+| `BraveLocalAIEnabled` | `false` | Disables on-device AI (Brave 1.94+; requires restart) |
+| `DNSInterceptionChecksEnabled` | `false` | Disables per-launch DNS interception probes (removes phantom lookups from network logs) |
+| `ChromeVariations` | `1` | Pins variations to critical fixes (browser doesn't reshuffle features under tests) |
+| `SpellCheckServiceEnabled` | `false` | Disables the enhanced (Google) spellcheck web service while keeping offline spellcheck |
+
+### DNS
+
+`DnsMode: automatic` — automatic DoH (default secure DNS).
+
+### Deliberately kept on (not disabled)
+
+- **Developer tools** (`DeveloperToolsAvailability`) — left unmanaged
+- **Remote debugging** (`RemoteDebuggingAllowed`) — left unmanaged (Puppeteer/Playwright need this)
+- **Printing** (`PrintingEnabled`) — left unmanaged
+- **Spellcheck** (`SpellcheckEnabled`) — only the online Google service is disabled; offline spellcheck stays
+- **QUIC** (`QuicAllowed`) — left on; needed for HTTP/3 testing
+- **Sync** (`SyncDisabled`) — left unmanaged; developers may rely on a sync chain
+- **PDF viewer** (`AlwaysOpenPdfExternally`) — left unmanaged; built-in PDF viewer stays on
+
+</Accordion>
+
+<Accordion title="Strict Parental Controls Preset">
+
+**File:** `./Presets/Strict Parental Controls Preset.json`
+
+**Best for:** Parents, schools, or workplaces that need restricted browsing with content filtering, no incognito or guest mode, and no extension installs.
+
+<Warning>
+  **SafeSites is a Google callout.** `SafeSitesFilterBehavior: 1` sends every URL the browser navigates to — including URLs loaded inside frames — to Google's Safe Search API for classification. This is a remote lookup, not a local blocklist. If that trade-off is not acceptable, untick "Filter Adult Content (SafeSites)" and rely on the DNS filter alone.
+</Warning>
+
+<Warning>
+  **The DNS template requires network access to `family.cloudflare-dns.com`.** This preset uses `DnsMode: custom` with `DnsTemplates: https://family.cloudflare-dns.com/dns-query`. Chromium's `custom` mode is a secure DoH mode: DNS lookups go over HTTPS only and are never retried against the system resolver. If that endpoint is blocked or unreachable — captive-portal Wi-Fi, some corporate or school networks — **nothing resolves at all** until you change the DNS mode or reset the policy. Point the template at a resolver you know works on your network.
+</Warning>
+
+### Policies set
+
+| Policy Key | Value | What it does |
+|-----------|-------|--------------|
+| `BraveP3AEnabled` | `false` | Stops P3A analytics pings |
+| `BraveStatsPingEnabled` | `false` | Stops the daily stats ping |
+| `IncognitoModeAvailability` | `1` | Blocks incognito mode — no private windows (requires restart) |
+| `BrowserGuestModeEnabled` | `false` | Disables guest mode (guest windows would bypass every profile restriction) |
+| `ExtensionInstallBlocklist` | `["*"]` | Blocks all extension installs and disables existing ones (a proxy or VPN extension would bypass the DNS filter) |
+| `ForceGoogleSafeSearch` | `true` | Forces Google SafeSearch on all Google searches |
+| `SafeSitesFilterBehavior` | `1` | Enables the SafeSites adult-content filter (remote Google Safe Search API lookup for every URL) |
+| `BrowserSignin` | `0` | Disables browser sign-in (requires restart) |
+| `BraveDeAmpEnabled` | `true` | Strips Google AMP wrappers |
+| `BraveDebouncingEnabled` | `true` | Skips tracking redirect hops |
+| `BraveTrackingQueryParametersFilteringEnabled` | `true` | Strips tracking query parameters |
+| `BraveReduceLanguageEnabled` | `true` | Reduces language fingerprinting |
+| `SyncDisabled` | `true` | Disables Brave Sync (stops settings from being pushed in from another device) |
+| `BraveRewardsDisabled` | `true` | Disables Brave Rewards |
+| `BraveWalletDisabled` | `true` | Disables Brave Wallet |
+| `BraveVPNDisabled` | `true` | Disables Brave VPN |
+| `BraveAIChatEnabled` | `false` | Disables Brave AI Chat (Leo) |
+| `BraveNewsDisabled` | `true` | Disables Brave News |
+| `BraveTalkDisabled` | `true` | Disables Brave Talk |
+| `BraveWebDiscoveryEnabled` | `false` | Disables Web Discovery Project |
+| `TorDisabled` | `true` | Disables Tor |
+| `DeveloperToolsAvailability` | `2` | Disables developer tools |
+| `RemoteDebuggingAllowed` | `false` | Blocks remote debugging (a debugging port is a scriptable side door past every filter this preset sets up) |
+
+### DNS
+
+`DnsMode: custom`, `DnsTemplates: https://family.cloudflare-dns.com/dns-query` — Cloudflare for Families DNS (blocks malware and adult content at the DNS level). Custom mode sends DNS-over-HTTPS exclusively with no plaintext fallback.
+
+### Not set (intentionally)
+
+- `BackgroundModeEnabled` — this preset does not target Windows/Linux background background behaviour; the lack of incognito and guest mode plus the DNS filter are the primary controls.
+- Site-permissions dropdowns (`DefaultNotificationsSetting`, `DefaultGeolocationSetting`, etc.) — left unmanaged; the DNS-level filter is the primary content control.
+
+</Accordion>
+
+<Accordion title="Brave Origin Preset">
+
+**File:** `./Presets/Brave Origin Preset.json`
+
+**Best for:** Anyone who wants Brave Origin's feature defaults on the standard Brave install they already run — or on Windows and macOS, where Brave Origin is a paid upgrade.
+
+<Note>
+  The 15 policy keys and their exact values in this preset are derived from `brave_origin_service_factory.cc` in brave-core — the file where Brave Origin defines what it enforces. They are not guessed or approximated.
+</Note>
+
+### Policies set
+
+| Policy Key | Value | What it does |
+|-----------|-------|--------------|
+| `BraveP3AEnabled` | `false` | Stops P3A analytics pings (Origin already defaults these off; managed policy pins them) |
+| `BraveStatsPingEnabled` | `false` | Stops the daily stats ping |
+| `BraveRewardsDisabled` | `true` | Disables Brave Rewards |
+| `BraveWalletDisabled` | `true` | Disables Brave Wallet |
+| `BraveVPNDisabled` | `true` | Disables Brave VPN |
+| `BraveAIChatEnabled` | `false` | Disables Brave AI Chat (Leo) |
+| `BraveLocalAIEnabled` | `false` | Disables on-device AI (Brave 1.94+; requires restart) |
+| `BraveNewsDisabled` | `true` | Disables Brave News |
+| `BraveTalkDisabled` | `true` | Disables Brave Talk |
+| `BravePlaylistEnabled` | `false` | Disables Brave Playlist |
+| `BraveWebDiscoveryEnabled` | `false` | Disables Web Discovery Project |
+| `BraveSpeedreaderEnabled` | `false` | Disables Speedreader |
+| `BraveWaybackMachineEnabled` | `false` | Disables the Wayback Machine prompt |
+| `TorDisabled` | `true` | Disables Tor |
+| `EmailAliasesEnabled` | `false` | Disables Email Aliases |
+
+### DNS
+
+Not set (unmanaged) — matching Brave Origin's own default behaviour.
+
+### What this preset cannot give you
+
+Origin also **compiles features out of the binary** and ships with metrics telemetry removed at build time. Policy keys can't shrink a binary. For the closest match on standard Brave, also enable "Disable Metrics Reporting" (`MetricsReportingEnabled: false`) — Origin builds don't report metrics at all.
+
+Origin's 16th policy (`PsstEnabled`) is not dispatched by any stable Brave build and its feature flag is off everywhere, so it is not included here — a switch that does nothing is worse than no switch.
+
+### On an actual Brave Origin install (Linux)
+
+Thirteen of the fifteen keys name features Origin removes at build time. On a machine whose only Brave is Origin, the import reports those 13 as built-in and leaves them unmanaged, and ticks the other two — `BraveP3AEnabled` and `BraveStatsPingEnabled` — which Origin already defaults off; the managed value pins them so they can't be re-enabled from Settings.
+
+</Accordion>
+
+</AccordionGroup>

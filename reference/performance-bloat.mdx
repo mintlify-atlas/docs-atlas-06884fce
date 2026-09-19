@@ -1,0 +1,109 @@
+---
+title: "Performance & Bloat Policies in SlimBrave Neo"
+sidebarTitle: "Performance & Bloat"
+description: "Fourteen policies to reduce resource usage and remove UI clutter — background mode, Memory Saver, hardware acceleration, Cast, PDF viewer, translation, spellcheck, and more."
+---
+
+This category targets background resource usage, network-connected UI features, and UI clutter that most users do not need. Several rows have **significant compatibility trade-offs** — printing, the built-in PDF viewer, developer tools, and spellcheck affect day-to-day workflow. Read the caveats column before applying presets that include this category.
+
+One pair of rows is **mutually exclusive**: Force Hardware Acceleration and Disable Hardware Acceleration set conflicting values for the same key and cannot both be active.
+
+## Policy Reference
+
+| Policy Name | Policy Key | Value Written | What It Does | Caveats |
+|---|---|---|---|---|
+| Disable Background Mode | `BackgroundModeEnabled` | `false` | Stops Brave from keeping background processes running after the last window is closed. | **Windows and Linux only.** The policy key does not exist on macOS; it is skipped when applying on macOS. |
+| Enable Memory Saver | `HighEfficiencyModeEnabled` | `true` | Forces Memory Saver on: inactive tabs are discarded to free RAM and reload when you return to them. | None. |
+| Force Hardware Acceleration | `HardwareAccelerationModeEnabled` | `true` | Pins GPU hardware acceleration on so rendering and video decode stay off the CPU. | **Requires a browser restart.** Mutually exclusive with Disable Hardware Acceleration. |
+| Disable Hardware Acceleration | `HardwareAccelerationModeEnabled` | `false` | Forces GPU acceleration off. Costs rendering performance and battery. | **Requires a browser restart.** Use only when the GPU path is the problem (faulty driver, VM/RDP, screen-sharing corruption). Mutually exclusive with Force Hardware Acceleration. |
+| Disable Media Router (Cast) | `EnableMediaRouter` | `false` | Disables the Google Cast media router and its background LAN device discovery. | **Requires a browser restart.** Breaks casting to Chromecast and similar devices. |
+| Disable Shopping List | `ShoppingListEnabled` | `false` | Disables the price-tracking shopping list feature. | None. |
+| Always Open PDF Externally | `AlwaysOpenPdfExternally` | `true` | Downloads PDFs and opens them in the system PDF viewer instead of the built-in viewer. | PDFs will not open in-browser at all. Requires a working system PDF viewer. |
+| Disable Translate | `TranslateEnabled` | `false` | Disables the built-in page translation feature and its popup prompts. | None. |
+| Disable Spellcheck | `SpellcheckEnabled` | `false` | Turns off all spell checking in text fields — offline included. | **Mutually exclusive with Disable Enhanced Spell Check** (Telemetry & Reporting category). |
+| Disable Search Suggestions | `SearchSuggestEnabled` | `false` | Stops sending address-bar keystrokes to the search engine for live suggestions. | None. |
+| Disable Printing | `PrintingEnabled` | `false` | Disables printing from the browser entirely (Ctrl+P stops working). | **Breaks all printing**, including to PDF. Do not enable on machines where printing is needed. |
+| Disable Default Browser Prompt | `DefaultBrowserSettingEnabled` | `false` | Stops Brave from asking to become the default browser. | None. |
+| Disable Developer Tools | `DeveloperToolsAvailability` | `2` | Blocks DevTools (F12) and extension debugging everywhere. | Does **not** close the remote debugging port. Use Block Remote Debugging (Privacy & Security) for that. Do not enable on development machines. |
+| Disable Wayback Machine | `BraveWaybackMachineEnabled` | `false` | Stops Brave from offering an archive.org snapshot when a page returns 404. | None. |
+
+---
+
+## Detailed Notes
+
+### Background Mode — Windows and Linux only
+
+`BackgroundModeEnabled: false` prevents Brave from keeping a background process alive after all windows are closed. On **macOS**, this policy key does not exist — the equivalent behaviour is controlled through macOS-native mechanisms, and Brave's Mac build ignores the key. SlimBrave Neo's macOS script automatically skips this key; it is written only on Linux and Windows. Every preset except Strict Parental Controls includes this row; on macOS, those presets apply cleanly with the key silently omitted.
+
+### Hardware Acceleration — mutually exclusive
+
+`HardwareAccelerationModeEnabled` is written by two mutually exclusive rows:
+
+```json
+{ "HardwareAccelerationModeEnabled": true }
+```
+**Force Hardware Acceleration** — keeps GPU rendering and video decode on the GPU. This is Brave's default; the policy pins it as managed so it cannot be disabled from settings.
+
+```json
+{ "HardwareAccelerationModeEnabled": false }
+```
+**Disable Hardware Acceleration** — forces software rendering. This is a deliberate departure from Brave's default. It costs performance and battery life. Use it only in specific scenarios:
+- A faulty GPU driver causes rendering artifacts or flickering
+- A virtual machine or RDP session has no usable GPU
+- Screen sharing causes corruption from GPU-composited layers
+
+Both rows require a **browser restart** to take effect. Selecting one in the UI deactivates the other.
+
+### Spellcheck — two rows across two categories
+
+Two rows in two different categories control spellcheck. They are **mutually exclusive**:
+
+| Row | Key | Category | Effect |
+|---|---|---|---|
+| Disable Spellcheck | `SpellcheckEnabled: false` | Performance & Bloat | Turns off **all** spellcheck — offline and online. Nothing underlines spelling errors. |
+| Disable Enhanced Spell Check | `SpellCheckServiceEnabled: false` | Telemetry & Reporting | Drops only the Google server-side lookup. Offline spell checking continues. |
+
+When `SpellcheckEnabled` is `false`, `SpellCheckServiceEnabled` has no effect — there is no spellcheck service for it to govern. Enabling "Disable Spellcheck" automatically deactivates "Disable Enhanced Spell Check" in the SlimBrave Neo UI.
+
+For most users, **Disable Enhanced Spell Check** is the right choice: you keep the offline spell-checking feedback while eliminating the Google lookup for every word you type. The Maximum Privacy and Balanced Privacy presets use this row.
+
+### Developer Tools vs. Remote Debugging Port
+
+These two policies are frequently confused:
+
+| Policy | Key | Closes |
+|---|---|---|
+| Disable Developer Tools | `DeveloperToolsAvailability: 2` | The in-browser DevTools panel (F12, right-click Inspect). Does **not** affect the remote debugging port. |
+| Block Remote Debugging | `RemoteDebuggingAllowed: false` | The `--remote-debugging-port` / `--remote-debugging-pipe` interface used by Puppeteer, Playwright, and `brave://inspect`. Does **not** affect the in-browser DevTools panel. |
+
+For a fully locked-down machine, set both. For a development machine, set neither — the Developer preset explicitly keeps both available.
+
+### Disable Printing — broader than it sounds
+
+`PrintingEnabled: false` disables all printing from the browser, including:
+- Ctrl+P / Cmd+P
+- Right-click → Print
+- The Print option in the browser menu
+- "Print to PDF" via the browser's built-in PDF printer
+
+This is a significant restriction. Do not apply it on any machine where printing — including to PDF — is part of the user's workflow.
+
+### Always Open PDF Externally — requires a system PDF viewer
+
+`AlwaysOpenPdfExternally: true` makes Brave download every PDF file and hand it to the system's default PDF application rather than displaying it in the browser tab. This requires:
+- A system PDF viewer installed and set as the default for `.pdf` files
+- The user accepting download prompts (or the browser being configured to auto-open downloads of that type)
+
+On a locked-down machine without a system PDF viewer, PDFs will download but not open.
+
+<Warning>
+  **Disable Printing (`PrintingEnabled: false`) disables Ctrl+P, Print to PDF, and all printing.** Do not enable this on any machine where the user needs to print or save web pages as PDF.
+</Warning>
+
+<Warning>
+  **Disable Developer Tools (`DeveloperToolsAvailability: 2`) does not close the remote debugging port.** A CDP-based automation tool or an attacker with local access can still drive Brave through `--remote-debugging-port` unless you also set `RemoteDebuggingAllowed: false` in the Privacy & Security category.
+</Warning>
+
+<Note>
+  **Disable Background Mode is Windows and Linux only.** On macOS, the key is silently skipped. Presets that include it apply cleanly on macOS with this one key omitted.
+</Note>

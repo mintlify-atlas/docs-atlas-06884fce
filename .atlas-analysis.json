@@ -1,0 +1,103 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "SlimBrave Neo",
+  "projectDescription": "A cross-platform tool that debloats and hardens Brave Browser on Linux, macOS, and Windows using Chromium enterprise policies — featuring a curses TUI on Linux/macOS and a native GUI on Windows, with 79 policies, 6 presets, and zero dependencies.",
+  "theme": "aspen",
+  "primaryColor": "#fbde58",
+  "lightColor": "#d0d6d4",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart/windows",
+              "quickstart/linux",
+              "quickstart/macos"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/presets",
+              "guides/import-export",
+              "guides/dns-over-https",
+              "guides/brave-origin"
+            ]
+          },
+          {
+            "group": "How It Works",
+            "pages": [
+              "how-it-works/policy-locations",
+              "how-it-works/channel-detection",
+              "how-it-works/security"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Policy Categories",
+            "pages": [
+              "reference/telemetry-reporting",
+              "reference/privacy-security",
+              "reference/site-permissions",
+              "reference/access-controls",
+              "reference/brave-features",
+              "reference/shields-content-protection",
+              "reference/performance-bloat"
+            ]
+          },
+          {
+            "group": "CLI & Configuration",
+            "pages": [
+              "reference/cli-flags",
+              "reference/preset-reference",
+              "reference/json-config-format"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "79 Chromium enterprise policies across 7 categories",
+    "6 built-in presets: Maximum Privacy, Balanced Privacy, Performance Focused, Developer, Strict Parental Controls, Brave Origin",
+    "Curses TUI on Linux/macOS with collapsible categories, live counts, /search, and description pane",
+    "Native Windows GUI with sidebar, search (reads descriptions), keyboard navigation, and preset cards",
+    "CLI mode (--import, --export, --reset) for scripting and automation on Linux/macOS",
+    "DNS-over-HTTPS management with custom template URL support",
+    "Multi-channel support: Stable, Beta, Nightly, Dev, and Brave Origin",
+    "macOS Configuration Profile support (--persist on) for durable policies across reboots",
+    "Cross-platform import/export: JSON configs round-trip between all three scripts",
+    "Zero dependencies — Python 3 stdlib only on Linux/macOS; PowerShell 5.1 on Windows"
+  ],
+  "publicApiSurface": [
+    "sudo python3 slimbrave-linux.py (TUI)",
+    "sudo python3 slimbrave-linux.py --import PATH",
+    "sudo python3 slimbrave-linux.py --export PATH",
+    "sudo python3 slimbrave-linux.py --reset",
+    "sudo python3 slimbrave-linux.py --policy-file PATH",
+    "sudo python3 slimbrave-linux.py --doh-templates URL",
+    "sudo python3 slimbrave-linux.py --channels LIST",
+    "sudo python3 slimbrave-mac.py (TUI)",
+    "sudo python3 slimbrave-mac.py --import PATH",
+    "sudo python3 slimbrave-mac.py --export PATH",
+    "sudo python3 slimbrave-mac.py --reset",
+    "sudo python3 slimbrave-mac.py --persist on|off",
+    "sudo python3 slimbrave-mac.py --channels stable,beta,nightly",
+    "powershell -ExecutionPolicy Bypass -File .\\SlimBrave.ps1 (GUI)",
+    "Presets/Maximum Privacy Preset.json",
+    "Presets/Balanced Privacy Preset.json",
+    "Presets/Performance Focused Preset.json",
+    "Presets/Developer Preset.json",
+    "Presets/Strict Parental Controls Preset.json",
+    "Presets/Brave Origin Preset.json"
+  ]
+}

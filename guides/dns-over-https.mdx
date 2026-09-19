@@ -1,0 +1,120 @@
+---
+title: "Configure DNS Over HTTPS in SlimBrave Neo"
+sidebarTitle: "DNS Over HTTPS"
+description: "Manage Brave's DNS-over-HTTPS mode as machine-wide policy — choose automatic, secure, custom, or off. Requires a template URL for secure and custom modes."
+---
+
+## What the DoH policy does
+
+SlimBrave Neo can write `DnsOverHttpsMode` (and optionally `DnsOverHttpsTemplates`) to Brave's managed policy location. Once written, those values are **machine-managed policy** — they appear in `brave://policy` and cannot be changed from `brave://settings` by the user. Removing the policy (via Reset, or by setting the mode back to `unmanaged`) returns full control to the user.
+
+## The five modes
+
+| Mode | Behavior |
+|---|---|
+| **unmanaged** | No DNS policy is written. Brave's own DNS settings stay user-controlled. This is the default — an untouched DoH section produces no policy at all. |
+| **automatic** | Brave selects the fastest secure DNS automatically. Brave tries DoH first and falls back to the system resolver if the DoH provider is unreachable. A template URL is optional in this mode — if you specify one, Brave uses it; if you don't, Brave chooses. |
+| **secure** | Forces DoH only, using the template URL you specify. Brave will **not** fall back to the system resolver. Requires a template URL. |
+| **off** | Force-disables DoH as policy. All DNS queries go to the system resolver in cleartext. |
+| **custom** | SlimBrave Neo's label for `secure` mode with an explicit resolver. Chromium writes `DnsOverHttpsMode: "secure"` and the template you provide. Requires a template URL. |
+
+<Note>
+`custom` and `secure` are the same Chromium mode (`"secure"`). SlimBrave Neo's TUI exposes them as separate options to make the template requirement explicit.
+</Note>
+
+## Template URL requirement
+
+`secure` and `custom` modes **require** a template URL. Without one, Chromium applies the mode with an empty resolver list and resolves nothing — and because the policy is machine-managed, you cannot fix it from `brave://settings` without root access to remove or change the policy file.
+
+`automatic` mode is exempt: an empty template is valid there, and Brave selects its own resolver. A template is honoured if you set one.
+
+<Warning>
+If you set `secure` or `custom` in the TUI without filling in the template field, SlimBrave Neo will refuse to apply and show an error: *"Secure/custom DNS requires a DoH template URL."* The same check applies in CLI mode.
+</Warning>
+
+## Common template URLs
+
+| Provider | Template URL |
+|---|---|
+| Cloudflare | `https://cloudflare-dns.com/dns-query` |
+| Cloudflare for Families (malware + adult content blocked) | `https://family.cloudflare-dns.com/dns-query` |
+| Google | `https://dns.google/dns-query` |
+| Quad9 (malware-blocking) | `https://dns.quad9.net/dns-query` |
+
+## Setting DoH in the TUI
+
+The DNS Over HTTPS section sits below the seven policy categories. It contains two rows:
+
+1. **DNS mode selector** — cycles through `unmanaged`, `automatic`, `secure`, `off`, `custom` using Left/Right or Space.
+2. **Template URL field** — an inline editable text field. Active (and required) when mode is `secure` or `custom`. Optional when mode is `automatic`.
+
+Move to the template field, press Enter to start editing, type the URL, and press Enter again to confirm.
+
+## Setting DoH from the CLI
+
+Use `--doh-templates` alongside `--import` to set or override the template URL when applying a preset non-interactively:
+
+```bash
+sudo python3 slimbrave-linux.py --import preset.json --doh-templates "https://cloudflare-dns.com/dns-query"
+```
+
+<Note>
+`--doh-templates` requires `--import`. Running it alone exits with an error. If the preset already specifies `DnsMode: "off"`, combining it with `--doh-templates` is a contradiction and the script exits with an error asking you to remove one of them.
+</Note>
+
+If the preset's `DnsMode` is `unmanaged` and you pass `--doh-templates`, the script promotes the mode to `custom` automatically rather than discarding the flag silently.
+
+### CLI examples
+
+<CodeGroup>
+```bash Cloudflare — automatic
+sudo python3 slimbrave-linux.py --import "./Presets/Balanced Privacy Preset.json" \
+    --doh-templates "https://cloudflare-dns.com/dns-query"
+```
+
+```bash Cloudflare for Families — custom (strict)
+sudo python3 slimbrave-linux.py --import "./Presets/Balanced Privacy Preset.json" \
+    --doh-templates "https://family.cloudflare-dns.com/dns-query"
+```
+
+```bash Quad9 — macOS with persistence
+sudo python3 slimbrave-mac.py --import "./Presets/Maximum Privacy Preset.json" \
+    --doh-templates "https://dns.quad9.net/dns-query" \
+    --persist on
+```
+</CodeGroup>
+
+## Mode-specific warnings
+
+<Warning>
+**`off` mode — cleartext DNS.** Forcing DoH off hands every DNS query to your ISP or network operator in cleartext. Every domain you visit is visible to them. Use this mode only if you have a specific reason to distrust your DoH provider more than your ISP, or if your network blocks DoH outright.
+</Warning>
+
+<Warning>
+**`secure` / `custom` mode — no fallback.** If the resolver you specify is unreachable — captive-portal Wi-Fi, some corporate or school networks, a VPN that intercepts DNS, a temporary outage — **nothing resolves** until the policy is changed or removed. You cannot fix this from `brave://settings` because the policy is machine-managed. To recover, run `--reset` or set the mode back to `unmanaged` and re-apply.
+</Warning>
+
+## How DoH appears in the exported config
+
+When a DoH mode other than `unmanaged` is active, the exported JSON file includes the DNS section:
+
+```json
+{
+    "Features": {
+        "...": "..."
+    },
+    "DnsMode": "custom",
+    "DnsTemplates": "https://family.cloudflare-dns.com/dns-query"
+}
+```
+
+When DNS is `unmanaged`, `DnsMode` and `DnsTemplates` are **omitted entirely** from the export. This means importing the file on any platform lands back on `unmanaged` rather than accidentally pinning a DNS policy.
+
+## Verifying the policy
+
+After applying, restart Brave and open `brave://policy`. Look for:
+
+- `DnsOverHttpsMode` — should show `secure`, `automatic`, or `off` as managed.
+- `DnsOverHttpsTemplates` — should show your template URL when set.
+
+If the rows are absent, the mode is `unmanaged` and no DNS policy is in effect.

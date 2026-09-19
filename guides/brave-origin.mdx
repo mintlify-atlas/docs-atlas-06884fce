@@ -1,0 +1,140 @@
+---
+title: "SlimBrave Neo with Brave Origin on Linux"
+sidebarTitle: "Brave Origin"
+description: "SlimBrave Neo detects Brave Origin as its own channel, shows compiled-out features as inert, and applies policies to Origin's profile alongside standard Brave."
+---
+
+## What is Brave Origin?
+
+[Brave Origin](https://brave.com/origin/linux/) is an official Brave build for Linux with telemetry and bloat removed **at compile time** — the features are not present in the binary at all, rather than disabled by runtime policy. It is now on the Release channel and available via `apt`:
+
+```bash
+apt install brave-origin
+```
+
+SlimBrave Neo is still useful alongside Origin: it gives you per-policy control, presets, DoH management, and the same Shields-leak repair — and it runs correctly on Origin's binary, knowing which rows are live and which are inert.
+
+<Note>
+If you want a clean Brave on Linux with minimal configuration, Origin alone may be all you need. SlimBrave Neo is the better fit when you want fine-grained policy control, custom DoH, or presets — and it works on Origin too.
+</Note>
+
+## How SlimBrave Neo detects Brave Origin
+
+SlimBrave Neo detects Origin as its own channel at startup, looking in several places:
+
+| Package / method | Detection path |
+|---|---|
+| Arch `brave-origin-bin` (AUR) | `/opt/brave-origin-bin/brave` |
+| deb / rpm (`brave-origin`) | `/opt/brave.com/brave-origin/brave-origin` or `/opt/brave.com/brave-origin/brave` |
+| `brave-origin` on `PATH` | Checked as a fallback |
+
+Origin Beta and Nightly are also detected:
+- **Origin Beta:** `brave-origin-beta` (profile: `Brave-Origin-Beta`)
+- **Origin Nightly:** `brave-origin-nightly` (profile: `Brave-Origin-Nightly`)
+
+To narrow CLI operations to Origin only, pass `--channels origin`:
+
+```bash
+sudo python3 slimbrave-linux.py --channels origin
+```
+
+## The single shared policy file
+
+Brave hardcodes the managed-policy directory to `/etc/brave/policies/managed/` for **every Linux channel** — regular Brave, Brave Beta, Brave Nightly, and all Origin variants all read the same directory. SlimBrave Neo writes a single file:
+
+```
+/etc/brave/policies/managed/slimbrave.json
+```
+
+This file is read by every Brave channel installed on the machine. There is no per-channel policy file on Linux and no `--channels` selector is needed for policy application — the selector controls which channel's user-data directory gets the Shields-leak repair and which process names are checked for "is Brave running?".
+
+## The 13 features compiled out of Origin
+
+The following features are removed from the Origin binary at build time. Their policy keys have no effect on an Origin-only machine because the features they control do not exist in the binary:
+
+<CardGroup cols={3}>
+  <Card title="Brave Rewards" icon="gift" />
+  <Card title="Brave Wallet" icon="wallet" />
+  <Card title="Brave VPN" icon="shield-keyhole" />
+  <Card title="AI Chat (Leo)" icon="robot" />
+  <Card title="Local AI" icon="microchip" />
+  <Card title="Brave News" icon="newspaper" />
+  <Card title="Brave Talk" icon="video" />
+  <Card title="Brave Playlist" icon="list-music" />
+  <Card title="Web Discovery" icon="magnifying-glass" />
+  <Card title="Speedreader" icon="gauge-high" />
+  <Card title="Wayback Machine" icon="clock-rotate-left" />
+  <Card title="Email Aliases" icon="envelope" />
+  <Card title="Tor" icon="circle-nodes" />
+</CardGroup>
+
+These 13 keys correspond to the `ORIGIN_BUILTIN_KEYS` set in `slimbrave-linux.py`:
+
+```python
+ORIGIN_BUILTIN_KEYS = frozenset((
+    "BraveRewardsDisabled", "BraveWalletDisabled", "BraveVPNDisabled",
+    "BraveAIChatEnabled", "BraveLocalAIEnabled", "BraveNewsDisabled",
+    "BraveTalkDisabled", "BravePlaylistEnabled", "BraveWebDiscoveryEnabled",
+    "BraveSpeedreaderEnabled", "BraveWaybackMachineEnabled", "TorDisabled",
+    "EmailAliasesEnabled",
+))
+```
+
+## How inert rows appear in the TUI
+
+On a machine whose only Brave is Origin, the 13 compiled-out rows are visible in the TUI but clearly marked as inactive:
+
+- Rendered as `[-]` instead of `[ ]` or `[x]`
+- Greyed out (dimmed colour)
+- Labelled `(built into Origin)` in the row
+- The description pane explains that the feature is not in the binary
+- **Excluded from section counts** — the live `n/m on` header counts never include them
+- **Never written** to the policy file, even if you somehow force-tick them
+
+This means a section header might show `2/5 on` on an Origin-only machine where 3 of the 5 rows are inert, rather than `2/2 on` — the inert rows are shown for context but don't affect the count.
+
+When a preset is imported that names inert keys, the import result reports how many were skipped:
+
+```
+Imported from ./Presets/Maximum Privacy Preset.json; 13 keys built into Brave Origin left unmanaged
+```
+
+## P3A and the stats ping
+
+P3A analytics (`BraveP3AEnabled`) and the daily stats ping (`BraveStatsPingEnabled`) are **not** in `ORIGIN_BUILTIN_KEYS`. These two features are present in the Origin binary — they are not compiled out. Origin merely defaults them off. A managed policy value pins them off and is included in the Brave Origin Preset.
+
+## Profile location
+
+Origin's user data directory follows the same pattern as every other Brave channel:
+
+```
+~/.config/BraveSoftware/Brave-Origin/
+```
+
+SlimBrave Neo repairs Shields-leak exceptions (the per-URL entries Brave writes to the profile's `Preferences` file when you apply `ForUrls`-style policies) from this directory, just as it does for regular Brave channels.
+
+## Origin beside standard Brave
+
+If both Origin and standard Brave are installed on the same machine:
+
+- The **single policy file** at `/etc/brave/policies/managed/slimbrave.json` is read by both browsers.
+- The 13 compiled-out rows are shown as **live** in the TUI (not inert), because standard Brave is also present and the policy file serves both. Every row is active for the standard Brave channel.
+- SlimBrave Neo prints a note at startup: *"Origin beside Brave: one policy file serves both; every row stays live."*
+
+This means the policies you set apply to regular Brave and do nothing for those 13 features on Origin (where they are compiled out) — but they do not cause errors or warnings in `brave://policy` on Origin; Brave simply ignores unknown or inapplicable keys.
+
+## The Brave Origin Preset
+
+The **Brave Origin Preset** (`Presets/Brave Origin Preset.json`) applies the same 15 policy keys that `brave_origin_service_factory.cc` in brave-core enforces. See the [Presets guide](/guides/presets) for the full key list and usage details.
+
+Quick apply:
+
+```bash
+sudo python3 slimbrave-linux.py --import "./Presets/Brave Origin Preset.json"
+```
+
+On an Origin-only machine, 13 of the 15 keys are inert (features compiled out). The import still succeeds — P3A and the stats ping are pinned off, and the other 13 are reported as built-in and left unmanaged.
+
+## Verifying after apply
+
+Restart Brave Origin and open `brave://policy`. Any policies that SlimBrave Neo wrote will appear in the "Machine policies" section. Inert policies (for compiled-out features) do not appear because they were never written.

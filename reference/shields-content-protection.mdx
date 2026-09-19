@@ -1,0 +1,100 @@
+---
+title: "Shields & Content Protection Policies in SlimBrave Neo"
+sidebarTitle: "Shields & Content Protection"
+description: "Five policies that pin Brave Shields defaults as managed policy — ad blocking, fingerprinting protection, HTTPS upgrades, referrer policy, and storage forget-on-close. Requires Brave 1.84+."
+---
+
+Brave Shields settings are user-adjustable by default — any site can have its Shields lowered, and the global defaults can be changed in `brave://settings`. This category pins those defaults as **managed enterprise policy** so they cannot be weakened, either globally or per-site. Think of it as locking the Shields dials in place.
+
+All policies in this category require **Brave 1.84 or newer**, with the exception of Enforce Fingerprinting Protection, which also works on 1.83.
+
+<Note>
+  These policies have **no effect when Brave Shields are globally disabled** via `BraveShieldsDisabledForUrls`. Brave skips all Shields enforcement wherever Shields are off for a URL. If you are using Disable Brave Shields (in the Brave Features category), this entire category is effectively inert.
+</Note>
+
+## Policy Reference
+
+| Policy Name | Policy Key | Value Written | What It Does | Caveats |
+|---|---|---|---|---|
+| Enforce Ad Blocking | `DefaultBraveAdblockSetting` | `2` | Pins Brave's ad and tracker blocking on as managed policy. Cannot be disabled globally or lowered per-site. | Requires Brave 1.84+. |
+| Enforce Fingerprinting Protection | `DefaultBraveFingerprintingV2Setting` | `3` | Pins Shields fingerprinting protection on as managed policy. Sites cannot be exempted from it. | Works on Brave 1.83+. |
+| Force HTTPS Upgrades (Strict) | `DefaultBraveHttpsUpgradeSetting` | `2` | Always upgrades connections to HTTPS. Sites that cannot serve HTTPS show a warning interstitial instead of silently falling back to HTTP. | Requires Brave 1.84+. |
+| Cap Referrers (Strict Origin) | `DefaultBraveReferrersSetting` | `2` | Caps the `Referer` header at the origin for cross-site requests, locked as managed policy. | **Mutually exclusive with Allow Permissive Referrers.** Requires Brave 1.84+. |
+| Allow Permissive Referrers | `DefaultBraveReferrersSetting` | `1` | Sends the full referring URL cross-origin when a site requests it (`unsafe-url` behaviour). | **Deliberately excluded from every preset.** Weakens privacy. Mutually exclusive with Cap Referrers. |
+| Forget First-Party Storage on Close | `DefaultBraveRemember1PStorageSetting` | `2` | Clears a site's cookies and storage when its last tab is closed — sites forget you (and your session) between visits. | Requires Brave 1.84+. Will log you out of every site whose last tab you close. |
+
+---
+
+## Detailed Notes
+
+### How managed Shields policies interact with per-site settings
+
+Brave normally allows per-site Shields overrides: a user can lower Shields for a specific site from the Shields panel in the address bar, exempting it from ad blocking, fingerprinting protection, and HTTPS upgrades. When these policies are set as managed policy:
+
+- **`DefaultBraveAdblockSetting: 2`** — ad blocking cannot be lowered. The per-site Shields toggle still exists, but it cannot turn off ad blocking below the managed minimum.
+- **`DefaultBraveFingerprintingV2Setting: 3`** — fingerprinting protection is similarly pinned.
+- **`DefaultBraveHttpsUpgradeSetting: 2`** — HTTPS upgrades are forced; sites that cannot serve HTTPS receive an interstitial.
+- **`DefaultBraveReferrersSetting: 2`** — the `Referer` header is capped at origin for cross-origin requests regardless of per-site Shields settings.
+
+### Ad blocking and tracker blocking — value semantics
+
+`DefaultBraveAdblockSetting` uses a Brave-specific integer enum:
+
+| Value | Meaning |
+|---|---|
+| `1` | Ad blocking disabled |
+| `2` | Ad blocking enabled (**this is what SlimBrave Neo writes**) |
+
+Value `2` pins the on-state. There is no managed way to express "standard" vs. "aggressive" blocking through this key — that is controlled by Brave's filter list settings, which are separate.
+
+### Fingerprinting protection — value semantics
+
+`DefaultBraveFingerprintingV2Setting` also uses a Brave-specific enum:
+
+| Value | Meaning |
+|---|---|
+| `1` | Fingerprinting protection disabled |
+| `2` | Fingerprinting protection in standard mode |
+| `3` | Fingerprinting protection in strict mode (**SlimBrave Neo writes `3`**) |
+
+### Referrer policy — mutually exclusive
+
+`DefaultBraveReferrersSetting` is written by two mutually exclusive rows:
+
+```json
+{ "DefaultBraveReferrersSetting": 2 }
+```
+
+Value `2` — **Cap Referrers (Strict Origin).** Cross-origin requests receive a `Referer` header that contains only the scheme and origin of the referring page (e.g. `https://example.com`), never the path or query string. This is what all SlimBrave Neo presets use.
+
+```json
+{ "DefaultBraveReferrersSetting": 1 }
+```
+
+Value `1` — **Allow Permissive Referrers (`unsafe-url`).** Sites that request `unsafe-url` referrer policy receive the full referring URL, including path and query string, across origins. This is a compatibility escape hatch for sites that break under capped referrers — it is deliberately excluded from every preset because it weakens privacy.
+
+Without either row set (both left unmanaged), Brave still caps cross-origin referrers by default, but the user or a per-site Shields setting can loosen it. Setting Cap Referrers as managed policy prevents that loosening.
+
+### Forget First-Party Storage on Close — what "on close" means
+
+`DefaultBraveRemember1PStorageSetting: 2` clears a site's first-party cookies and storage when **the last tab for that site** is closed. It does not clear storage mid-session or when Brave starts. Practical effects:
+
+- You will be logged out of every site whose last tab you close.
+- Sites will not remember your preferences, cart contents, or login state between visits.
+- This replicates the session-clearing effect of incognito mode without the incognito restrictions (extensions work, history is recorded, bookmarks persist).
+
+The Maximum Privacy preset uses this instead of Force Incognito Mode (`IncognitoModeAvailability: 2`) to achieve automatic session clearing with fewer side effects.
+
+### Brave 1.84+ requirement
+
+The `DefaultBraveAdblockSetting`, `DefaultBraveHttpsUpgradeSetting`, `DefaultBraveReferrersSetting`, and `DefaultBraveRemember1PStorageSetting` keys were introduced in **Brave 1.84**. On older versions, these keys are silently ignored — the policies are written but have no effect. `DefaultBraveFingerprintingV2Setting` works on **1.83 and newer**.
+
+Verify your Brave version at `brave://version` before relying on these policies.
+
+<Warning>
+  **Forget First-Party Storage on Close will log you out** of every site when you close its last tab. This includes banking sites, email, and any service that uses session cookies. Apply this policy only if the privacy benefit is worth the inconvenience of re-authenticating on every visit.
+</Warning>
+
+<Warning>
+  **Allow Permissive Referrers** (`DefaultBraveReferrersSetting: 1`) sends your full referring URL — including path and query parameters — to cross-origin sites. This is a privacy regression relative to Brave's defaults. It is excluded from every SlimBrave Neo preset and should only be used as a targeted fix for a specific site compatibility issue.
+</Warning>

@@ -1,0 +1,256 @@
+---
+title: "SlimBrave Neo JSON Configuration File Format"
+sidebarTitle: "JSON Config Format"
+description: "The SlimBrave Neo JSON config format stores your policy selections as a Features object plus DNS settings. Files are cross-platform and round-trip between all three scripts."
+---
+
+## Overview
+
+The SlimBrave Neo JSON config format is the exchange format used by all three platform scripts and the Windows GUI. A config file stores your managed policy selections as a `Features` object — mapping Chromium policy key names to their values — plus optional DNS-over-HTTPS fields. Files produced on Windows, Linux, or macOS are interchangeable.
+
+---
+
+## Top-level Structure
+
+```json
+{
+    "Features": {
+        "<PolicyKey>": <value>
+    },
+    "DnsOverHttpsMode": "<mode>",
+    "DnsOverHttpsTemplates": "<url>"
+}
+```
+
+The three top-level fields are:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `Features` | object | Yes | Maps Chromium policy key names to their managed values |
+| `DnsOverHttpsMode` | string | No | DNS-over-HTTPS mode. One of `"unmanaged"`, `"automatic"`, `"off"`, `"secure"`, or `"custom"` |
+| `DnsOverHttpsTemplates` | string | No | DoH template URL. Required when mode is `"secure"` or `"custom"`; empty string or omitted otherwise |
+
+<Note>
+  Some older preset files use the abbreviated key names `DnsMode` and `DnsTemplates`. All three scripts accept both the abbreviated and the full `DnsOverHttpsMode` / `DnsOverHttpsTemplates` names transparently on import.
+</Note>
+
+---
+
+## The `Features` Object
+
+The `Features` object is a flat map from Chromium enterprise policy key names to their target values. Each key in `Features` corresponds directly to a Chromium or Brave-specific policy that the scripts write to the managed policy location on disk.
+
+### Value types
+
+| Policy type | JSON type | Example |
+|-------------|-----------|---------|
+| Boolean on/off policies | `true` or `false` | `"MetricsReportingEnabled": false` |
+| Integer policies | integer | `"BrowserSignin": 0`, `"NetworkPredictionOptions": 2` |
+| String policies | string | `"WebRtcIPHandling": "disable_non_proxied_udp"` |
+| Site permission policies | integer enum | `"DefaultNotificationsSetting": 2` (Block), `"DefaultGeolocationSetting": 3` (Ask) |
+| Variations policy | integer | `"ChromeVariations": 1` (limit) or `2` (disable all) |
+| Extension blocklist | array | `"ExtensionInstallBlocklist": ["*"]` |
+
+### Site permission enum values
+
+Site permission keys accept an integer enum rather than a boolean. The legal values are:
+
+| Value | Meaning | Notes |
+|-------|---------|-------|
+| `1` | Allow | Only valid on keys where Chromium accepts it: `DefaultNotificationsSetting`, `DefaultGeolocationSetting`, `DefaultSensorsSetting`. **Not valid** on `DefaultWebUsbGuardSetting`, `DefaultSerialGuardSetting`, `DefaultWebHidGuardSetting`, `DefaultLocalFontsSetting`, `DefaultWindowManagementSetting` — those are Ask-or-Block only |
+| `2` | Block | Valid on all site permission keys |
+| `3` | Ask | Valid on all site permission keys |
+
+A value outside a key's legal set is left unmanaged on import rather than written — the import result names the key it skipped.
+
+### Missing keys
+
+A key that is absent from the `Features` object is treated as **Not managed** on import. The corresponding policy is cleared (not written to the managed policy file). This means a partial config is valid: keys not present in the file come back as unmanaged, leaving Brave's own defaults in place for those settings.
+
+### Unknown keys
+
+Keys present in the file that the current version of SlimBrave Neo does not recognise are **ignored on import** (forward compatibility). This allows configs exported from newer versions to be imported into older ones without error; the unknown keys are simply not written.
+
+---
+
+## DNS Fields
+
+### `DnsOverHttpsMode`
+
+Controls whether Chromium manages DNS-over-HTTPS at all, and which mode it uses.
+
+| Value | Behaviour |
+|-------|-----------|
+| `"unmanaged"` | No DNS policy written; Brave's own DNS settings and the user's per-setting choices remain in effect |
+| `"automatic"` | Brave selects the fastest available DoH resolver automatically |
+| `"off"` | Force-disables DoH as policy; all DNS queries go to the system resolver in cleartext |
+| `"secure"` | Strict DoH-only mode; requires a template URL |
+| `"custom"` | Custom DoH resolver; requires a template URL |
+
+<Warning>
+  `"secure"` and `"custom"` **require** a non-empty `DnsOverHttpsTemplates` value. Chromium would otherwise apply the mode with an empty resolver list and resolve nothing at all — and because it's machine-managed policy, you can't fix it from `brave://settings`. SlimBrave Neo refuses to write `secure` or `custom` without a template.
+</Warning>
+
+### `DnsOverHttpsTemplates`
+
+The DoH template URL, following RFC 8484. Required when `DnsOverHttpsMode` is `"secure"` or `"custom"`. Set to an empty string (`""`) or omit entirely when the mode is `"unmanaged"`, `"automatic"`, or `"off"`. An explicit template value is honoured alongside `"automatic"` if you set one.
+
+**Common resolver templates:**
+
+| Provider | Template URL |
+|----------|--------------|
+| Cloudflare (privacy-first) | `https://cloudflare-dns.com/dns-query` |
+| Cloudflare for Families | `https://family.cloudflare-dns.com/dns-query` |
+| Google | `https://dns.google/dns-query` |
+| NextDNS | `https://dns.nextdns.io/<your-id>` |
+| Quad9 | `https://dns.quad9.net/dns-query` |
+
+---
+
+## Real Example
+
+The following is the full content of `Presets/Maximum Privacy Preset.json` as shipped:
+
+```json
+{
+    "Features": {
+        "MetricsReportingEnabled": false,
+        "SafeBrowsingExtendedReportingEnabled": false,
+        "UrlKeyedAnonymizedDataCollectionEnabled": false,
+        "BraveP3AEnabled": false,
+        "BraveStatsPingEnabled": false,
+        "AutofillAddressEnabled": false,
+        "AutofillCreditCardEnabled": false,
+        "PasswordManagerEnabled": false,
+        "PasswordLeakDetectionEnabled": false,
+        "BrowserSignin": 0,
+        "BraveGlobalPrivacyControlEnabled": true,
+        "BraveDeAmpEnabled": true,
+        "BraveDebouncingEnabled": true,
+        "BraveTrackingQueryParametersFilteringEnabled": true,
+        "BraveReduceLanguageEnabled": true,
+        "WebRtcIPHandling": "disable_non_proxied_udp",
+        "QuicAllowed": false,
+        "NetworkPredictionOptions": 2,
+        "BlockThirdPartyCookies": true,
+        "PaymentMethodQueryEnabled": false,
+        "AlternateErrorPagesEnabled": false,
+        "DefaultNotificationsSetting": 2,
+        "DefaultGeolocationSetting": 2,
+        "DefaultSensorsSetting": 2,
+        "BraveRewardsDisabled": true,
+        "BraveWalletDisabled": true,
+        "BraveVPNDisabled": true,
+        "BraveAIChatEnabled": false,
+        "BraveNewsDisabled": true,
+        "BraveTalkDisabled": true,
+        "BravePlaylistEnabled": false,
+        "BraveWebDiscoveryEnabled": false,
+        "BraveSpeedreaderEnabled": false,
+        "TorDisabled": true,
+        "SyncDisabled": true,
+        "EmailAliasesEnabled": false,
+        "DefaultBraveAdblockSetting": 2,
+        "DefaultBraveFingerprintingV2Setting": 3,
+        "DefaultBraveHttpsUpgradeSetting": 2,
+        "DefaultBraveReferrersSetting": 2,
+        "DefaultBraveRemember1PStorageSetting": 2,
+        "BackgroundModeEnabled": false,
+        "EnableMediaRouter": false,
+        "ShoppingListEnabled": false,
+        "AlwaysOpenPdfExternally": true,
+        "TranslateEnabled": false,
+        "SpellcheckEnabled": false,
+        "SearchSuggestEnabled": false,
+        "PrintingEnabled": false,
+        "DefaultBrowserSettingEnabled": false,
+        "DeveloperToolsAvailability": 2,
+        "BraveWaybackMachineEnabled": false,
+        "BraveLocalAIEnabled": false,
+        "DNSInterceptionChecksEnabled": false,
+        "RemoteDebuggingAllowed": false,
+        "BasicAuthOverHttpEnabled": false,
+        "BlockExternalExtensions": true,
+        "ChromeVariations": 1
+    }
+}
+```
+
+Notice that no `DnsOverHttpsMode` or `DnsOverHttpsTemplates` fields are present — this leaves DNS unmanaged, which is the Maximum Privacy Preset's deliberate choice (see the preset description in the [Preset Reference](/reference/preset-reference)).
+
+---
+
+## Cross-platform Compatibility
+
+All three scripts — `SlimBrave.ps1` (Windows PowerShell), `slimbrave-linux.py`, and `slimbrave-mac.py` — read and write the same JSON format.
+
+| Property | Behaviour |
+|----------|-----------|
+| **Encoding on export** | All three scripts export UTF-8 without a BOM |
+| **Encoding on import** | All three scripts also accept the UTF-16 (with BOM) files that older versions of the PowerShell script produced, for backward compatibility |
+| **Round-trip fidelity** | A file exported on Windows can be imported on Linux or macOS and vice versa without modification |
+| **Partial configs** | Keys absent from the file come back as Not managed — only the keys present in the file are written to the policy |
+| **Unknown keys** | Keys present in the file that the running script version does not recognise are silently ignored on import (forward compatibility) |
+
+---
+
+## Site Permissions — Backward Compatibility
+
+Exports produced by SlimBrave Neo v1.9.5 and earlier carried the value `2` for site-permission keys (the only state those older versions supported — equivalent to Block). These files import correctly: a value of `2` is recognised as Block on all site-permission keys.
+
+If a config names a value that falls outside a key's legal set (for example, `1` on `DefaultWebUsbGuardSetting`, which does not have an Allow member), the key is left unmanaged rather than written, and the import result names the skipped key so you know what was not applied.
+
+---
+
+## Where Config Files Are Used
+
+| Use case | Path | Notes |
+|----------|------|-------|
+| Built-in presets | `./Presets/*.json` | Same format; shipped with the repository |
+| User exports | Any path passed to `--export` or the Export button | Created by SlimBrave Neo |
+| User imports | Any path passed to `--import` or the Import button | Read by SlimBrave Neo |
+| Windows GUI Export / Import | Any path you choose in the file dialog | Identical format to CLI exports |
+
+---
+
+## Minimal Config Example
+
+A config file does not need to set every key. This minimal file disables only telemetry:
+
+```json
+{
+    "Features": {
+        "MetricsReportingEnabled": false,
+        "BraveP3AEnabled": false,
+        "BraveStatsPingEnabled": false
+    }
+}
+```
+
+All other keys are absent and therefore treated as Not managed — Brave's own defaults and any per-site settings the user has made remain untouched.
+
+---
+
+## Config with Custom DoH
+
+```json
+{
+    "Features": {
+        "MetricsReportingEnabled": false,
+        "BraveP3AEnabled": false,
+        "BraveStatsPingEnabled": false
+    },
+    "DnsOverHttpsMode": "custom",
+    "DnsOverHttpsTemplates": "https://cloudflare-dns.com/dns-query"
+}
+```
+
+You can also set the DoH template at import time without editing the JSON file, using the `--doh-templates` flag:
+
+```bash
+sudo python3 slimbrave-linux.py \
+  --import my-config.json \
+  --doh-templates "https://cloudflare-dns.com/dns-query"
+```
+
+If the config carries no `DnsOverHttpsMode` key (i.e., mode is unmanaged), passing `--doh-templates` on the CLI automatically promotes the mode to `custom` so the template takes effect.

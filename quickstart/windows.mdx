@@ -1,0 +1,168 @@
+---
+title: "Get Started with SlimBrave Neo on Windows"
+sidebarTitle: "Windows"
+description: "Run the SlimBrave Neo Windows GUI in under a minute — clone the repo or download the script with a single PowerShell one-liner. No install required."
+---
+
+## Requirements
+
+- Windows 10 or Windows 11
+- Windows PowerShell 5.1 (ships with Windows — no installation needed)
+- Administrator privileges (the script re-launches itself elevated automatically)
+- Brave Browser installed
+
+---
+
+<Steps>
+
+<Step title="Get the script">
+
+You have two options: clone the full repository (recommended — gives you the `Presets/` directory and future `git pull` updates), or download just the script with a one-liner.
+
+<CodeGroup>
+
+```powershell Clone (recommended)
+git clone https://github.com/ChaoticSi1ence/SlimBrave-Neo.git
+cd SlimBrave-Neo
+```
+
+```powershell One-liner download (no git required)
+iwr "https://raw.githubusercontent.com/ChaoticSi1ence/SlimBrave-Neo/main/SlimBrave.ps1" -OutFile "SlimBrave.ps1"
+```
+
+</CodeGroup>
+
+<Note>
+  The one-liner pulls `main` — the latest version. If you want to pin an exact,
+  unchanging version and verify it against a published SHA-256 checksum before
+  running, see `SECURITY.md` in the repository for tagged releases and hash
+  verification instructions.
+</Note>
+
+</Step>
+
+<Step title="Launch the GUI">
+
+Run the script with `-ExecutionPolicy Bypass`:
+
+<CodeGroup>
+
+```powershell From a cloned repo
+powershell -ExecutionPolicy Bypass -File .\SlimBrave.ps1
+```
+
+```powershell After one-liner download
+powershell -ExecutionPolicy Bypass -File .\SlimBrave.ps1
+```
+
+</CodeGroup>
+
+A UAC prompt will appear immediately — SlimBrave Neo relaunches itself elevated so that **Apply Settings** and **Reset** can write machine-level policy to the registry. Click **Yes** to proceed.
+
+<Note>
+  **"Running scripts is disabled on this system"?** That is Windows' default
+  execution policy (`Restricted`) refusing to run any `.ps1` file. The
+  `-ExecutionPolicy Bypass` on the command above applies **only to that one
+  process launch** — it changes no setting on your machine, affects no other
+  scripts, and you never need to run `Set-ExecutionPolicy`. If you hit the
+  error, you ran a copy of the command that was missing the `-ExecutionPolicy
+  Bypass -File` part; re-run the full command shown above.
+</Note>
+
+</Step>
+
+<Step title="Explore the interface">
+
+The GUI opens showing the policies already on the machine — if this is a fresh install, everything is unchecked. The window has three main areas:
+
+**Sidebar (left):** Seven category buttons — Telemetry & Reporting, Privacy & Security, Site Permissions, Access Controls, Brave Features, Shields & Content Protection, and Performance & Bloat — plus an **All Options** page that lists all 79 policies in one scroll with section headers. Click a category or use **Tab** to move focus there and **Up/Down** to navigate.
+
+**Policy list (centre):** Each row has a toggle (checkbox) or dropdown, followed by a title and a plain-English description directly below the title. Where the description is longer than one line, a chevron expands it in place. **Clicking a label does nothing** — only the toggle or the dropdown itself responds, to prevent accidental changes.
+
+**Search box (header):** Matches against titles, policy keys, category names, *and* description text simultaneously. Typing `telemetry` returns every row in the reporting section. Typing `passwords` surfaces "Require HTTPS for Basic Auth" even though its title never uses that word. Multiple words narrow results, plurals match singulars, and punctuation is ignored on both sides. Title matches rank above prose matches.
+
+**Button row (bottom):** Export, Import, **Re-sync**, Reset, and **Apply Settings**. Re-sync reads the policy currently in the registry back into the interface — it writes nothing and goes through the same reader that fills the form on startup, so Re-sync always agrees with a fresh launch.
+
+</Step>
+
+<Step title="Load a preset (optional)">
+
+The **Presets** page (reachable from the sidebar) shows six preset cards. Each card displays a short summary of what the preset does and how many policies it sets. Click or press **Space/Enter** on a card to load it.
+
+**Loading a preset only fills in the controls.** Nothing is written to the registry until you press **Apply Settings**. This means you can load a preset, review every row, untick anything you disagree with, and then apply only what you actually want.
+
+The six presets are:
+
+| Preset | What it optimises for |
+|--------|----------------------|
+| **Maximum Privacy** | Silences all telemetry, kills all Brave features, pins all Shields, blocks most permissions. Also disables devtools, printing, and the PDF viewer — read the description before applying. |
+| **Balanced Privacy** | Privacy gains without losing the password manager, address autofill, or convenience features. |
+| **Performance Focused** | Faster, lighter Brave — Memory Saver on, hardware acceleration forced, background weight and AI removed. |
+| **Developer** | Removes telemetry and monetisation features; keeps devtools, QUIC, Sync, printing, and remote debugging working. |
+| **Strict Parental Controls** | SafeSearch, SafeSites adult filter, all extensions blocked, custom DoH (Cloudflare for Families). |
+| **Brave Origin** | Applies the same 15 policy keys Brave Origin enforces, derived from brave-core source. |
+
+<Tip>
+  The presets are embedded directly in `SlimBrave.ps1`, so they work even with
+  the one-liner download — no `Presets/` directory on disk is required.
+</Tip>
+
+</Step>
+
+<Step title="Customise individual policies">
+
+After loading a preset (or starting from scratch), scroll through the list and toggle any row individually:
+
+- **Checkboxes** are for boolean policies — click the checkbox, or focus it with Tab/Up/Down and press **Space** or **Enter**.
+- **Dropdowns** appear on Site Permissions rows and on any policy with more than two states. Open a dropdown with **Space/Enter** and navigate the menu with **Up/Down**; **Right** also opens a row's expanded description, **Left** closes it.
+- The **DNS Over HTTPS** section at the bottom of All Options has a mode selector (Unmanaged / Automatic / Off / Secure / Custom) and an editable template URL field that appears when Custom is selected.
+
+Any row left unchecked (or a dropdown left on **Not managed**) writes nothing — Brave's own defaults and your per-site choices are left untouched for that policy.
+
+</Step>
+
+<Step title="Apply Settings">
+
+When you are satisfied with your selections, click **Apply Settings** (or Tab to it and press Enter). The script writes Chromium enterprise managed policy values to:
+
+```
+HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave
+```
+
+Apply is a **full overwrite** — any policy you left unchecked is cleanly removed from the registry, so there are no leftover keys from previous runs.
+
+</Step>
+
+<Step title="Restart Brave and verify">
+
+Close all Brave windows, then relaunch Brave. Navigate to `brave://policy` and confirm that your applied policies appear in the list, sourced from `Platform` (machine-level managed policy).
+
+Any policy shown with an error indicator was rejected by Brave — the description pane in SlimBrave Neo explains version requirements for policies that need a minimum Brave version.
+
+To remove all policies at any time, click **Reset** in the button row and confirm.
+
+</Step>
+
+</Steps>
+
+---
+
+## Keyboard Reference
+
+The GUI is fully keyboard-accessible. A dotted outline marks the focused control; it appears the first time keyboard input moves focus, so a mouse session never shows it.
+
+| Key | Action |
+|-----|--------|
+| **Tab** / **Shift+Tab** | Cycle focus: sidebar → search → policy list → button row, and round again |
+| **Up** / **Down** | Move to the previous / next item in the focused area |
+| **PageUp** / **PageDown** / **Home** / **End** | Scroll through the policy list |
+| **Space** / **Enter** | Toggle a checkbox, open a dropdown, load a preset card, press a focused button — on key *release*, so a held key acts only once |
+| **Right** | Open / expand a row's description |
+| **Left** | Close / collapse a row's description |
+| **Escape** | Clear the search box; if the search is already empty, close the window — asking first if there are staged (unapplied) changes |
+
+---
+
+## Exporting and Importing Settings
+
+Use **Export** to save your current on-screen selections to a JSON file. Use **Import** to load a previously exported file or any of the preset JSON files from the `Presets/` directory. The JSON format is cross-platform compatible with the Linux and macOS scripts.

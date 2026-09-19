@@ -1,0 +1,275 @@
+---
+title: "CLI Flags for SlimBrave Neo Linux and macOS Scripts"
+sidebarTitle: "CLI Flags"
+description: "All command-line flags for slimbrave-linux.py and slimbrave-mac.py — import, export, reset, policy file path, DoH templates, channel targeting, and macOS persistence."
+---
+
+## Overview
+
+The **Windows PowerShell script** (`SlimBrave.ps1`) is GUI-only and has no user-facing flags. It declares only the two internal parameters the elevation relaunch passes to itself. Use the **Import** and **Export** buttons inside the GUI instead.
+
+The **Linux** (`slimbrave-linux.py`) and **macOS** (`slimbrave-mac.py`) scripts support both an interactive TUI mode and a non-interactive CLI mode. Running without flags opens the TUI; passing any of the flags below activates CLI mode and runs non-interactively.
+
+## Launching the TUI (no flags)
+
+```bash
+# Linux
+sudo python3 slimbrave-linux.py
+
+# macOS
+sudo python3 slimbrave-mac.py
+```
+
+Both scripts require root (`sudo`). Without flags, the full curses-based TUI opens with collapsible categories, live policy counts, `/` search, and an Import / Export / Apply / Reset button row.
+
+---
+
+## Flag Reference
+
+| Flag | Argument | Description | Platform | Default / Notes |
+|------|----------|-------------|----------|-----------------|
+| `--import` | `PATH` | Import a SlimBrave Neo JSON config and apply policies | Linux, macOS | — |
+| `--export` | `PATH` | Export the current policy to a SlimBrave Neo JSON config | Linux, macOS | — |
+| `--reset` | *(none)* | Remove the managed policy file (and Configuration Profile on macOS) | Linux, macOS | — |
+| `--policy-file` | `PATH` | Override the default policy file path | Linux, macOS | Linux: path must be within `/etc/brave/policies/managed` or `/etc/chromium/policies/managed`. macOS: must be within `/Library/Managed Preferences` or `/Library/Preferences` |
+| `--doh-templates` | `URL` | Set a custom DNS-over-HTTPS template URL | Linux, macOS | Only valid alongside `--import`; exits `2` if used alone |
+| `--channels` | `LIST` | Comma-separated list of channels to target | Linux, macOS | Linux: `stable`, `beta`, `nightly`, `dev`, `origin`, `origin-beta`, `origin-nightly`. macOS: `stable`, `beta`, `nightly`. Default: `auto` (all detected) |
+| `--persist` | `MODE` | Persistence mode: `off` (plist only) or `on` (Configuration Profile) | **macOS only** | Omitted = reuse the currently installed mode; falls back to `off` on a fresh install. `slimbrave-linux.py` does not accept this flag — passing it exits with code `2` |
+| `-h`, `--help` | *(none)* | Show help and exit | Linux, macOS | — |
+
+---
+
+## Flag Details and Examples
+
+### `--import PATH`
+
+Reads a SlimBrave Neo JSON config file and applies its policies to the system. The JSON format is the same one the Windows GUI exports and all three scripts produce.
+
+<ParamField path="--import" type="PATH" required>
+  Path to the SlimBrave Neo JSON config file to import. Can be a preset from the `Presets/` directory or any file produced by `--export`.
+</ParamField>
+
+```bash
+# Apply the Maximum Privacy preset
+sudo python3 slimbrave-linux.py --import "./Presets/Maximum Privacy Preset.json"
+
+# Apply on macOS
+sudo python3 slimbrave-mac.py --import "./Presets/Maximum Privacy Preset.json"
+```
+
+On **Brave Origin** (Linux): keys that correspond to features Origin removes at build time are reported as built-in and left unmanaged — the import result names how many were skipped.
+
+---
+
+### `--export PATH`
+
+Reads the policy currently on disk and writes it to a SlimBrave Neo JSON config file. The resulting file can be re-imported on any platform.
+
+<ParamField path="--export" type="PATH" required>
+  Destination path for the exported JSON file.
+</ParamField>
+
+```bash
+# Export current policy to a backup file
+sudo python3 slimbrave-linux.py --export ~/my-brave-config.json
+
+# macOS export
+sudo python3 slimbrave-mac.py --export ~/my-brave-config.json
+```
+
+If keys on disk correspond to features Brave Origin compiles out, those keys are omitted from the export and the number skipped is printed to stderr.
+
+---
+
+### `--reset`
+
+Deletes the managed policy file (and, on macOS, removes the Configuration Profile if one is installed). Brave no longer has any managed policies after a reset. The script also repairs any leaked Shields exception prefs that live in the browser's own profile directory.
+
+```bash
+# Remove all managed policies on Linux
+sudo python3 slimbrave-linux.py --reset
+
+# Remove all managed policies on macOS (including any Configuration Profile)
+sudo python3 slimbrave-mac.py --reset
+```
+
+<Note>
+  If Brave is running when you reset, leaked profile prefs may be re-saved by the browser before the cleanup takes effect. The script prints a warning in this case. Fully close Brave, then run `--reset` again.
+</Note>
+
+---
+
+### `--policy-file PATH`
+
+Overrides the default policy file path. Useful for testing or for pointing at a non-default Chromium policy directory.
+
+<ParamField path="--policy-file" type="PATH">
+  Path to use instead of the default policy file. Must resolve to a path within one of the allowed directories.
+</ParamField>
+
+**Allowed directories:**
+
+| Platform | Allowed paths |
+|----------|---------------|
+| Linux | `/etc/brave/policies/managed`, `/etc/chromium/policies/managed` |
+| macOS | `/Library/Managed Preferences`, `/Library/Preferences` |
+
+The path restriction exists because `--reset` deletes the target file while running as root. An unrestricted path combined with a permissive `sudoers` rule could delete arbitrary system files. Chromium only reads managed policies from those directories anyway, so legitimate use never needs to point elsewhere.
+
+```bash
+# Write to the Chromium policy directory instead of the Brave one
+sudo python3 slimbrave-linux.py \
+  --policy-file /etc/chromium/policies/managed/slimbrave.json \
+  --import "./Presets/Balanced Privacy Preset.json"
+```
+
+---
+
+### `--doh-templates URL`
+
+Sets the `DnsOverHttpsTemplates` value when applying a config via `--import`. This flag is only meaningful alongside `--import` — passing it without `--import` exits with code `2`.
+
+<ParamField path="--doh-templates" type="URL">
+  A DNS-over-HTTPS template URL (RFC 8484 URI template). Required when the config's `DnsMode` is `custom` and no template is already embedded in the JSON. Also accepted when `DnsMode` is `secure` or `automatic`.
+</ParamField>
+
+```bash
+# Import a preset and override the DoH resolver to Cloudflare
+sudo python3 slimbrave-linux.py \
+  --import "./Presets/Maximum Privacy Preset.json" \
+  --doh-templates "https://cloudflare-dns.com/dns-query"
+
+# Use NextDNS
+sudo python3 slimbrave-linux.py \
+  --import preset.json \
+  --doh-templates "https://dns.nextdns.io/your-id"
+```
+
+<Warning>
+  `--doh-templates` conflicts with `DnsMode: off` inside the imported file. If the preset you're importing sets DNS mode to `off`, the script exits `1` with an error. Remove the conflicting value from the config, or don't pass `--doh-templates` for that preset.
+</Warning>
+
+When the imported config carries no `DnsMode` key at all (i.e., `unmanaged`), passing `--doh-templates` automatically promotes the mode to `custom` so the template takes effect.
+
+---
+
+### `--channels LIST`
+
+Narrows the operation to specific Brave channels. Controls which channels the Shields prefs-repair runs against and which processes are checked for "is Brave running" detection. On **macOS**, it also controls which per-channel plist files are written. On **Linux**, all channels always share the same single policy file — `--channels` only narrows prefs repair and process detection, not the policy write itself.
+
+<ParamField path="--channels" type="LIST" default="auto">
+  Comma-separated list of channel IDs. Valid values depend on platform. Default `auto` detects all installed Brave channels and targets all of them.
+</ParamField>
+
+**Valid channel IDs:**
+
+| Platform | Valid values |
+|----------|-------------|
+| Linux | `stable`, `beta`, `nightly`, `dev`, `origin`, `origin-beta`, `origin-nightly` |
+| macOS | `stable`, `beta`, `nightly` |
+
+```bash
+# Target only the stable channel on Linux
+sudo python3 slimbrave-linux.py --import preset.json --channels stable
+
+# Target only the Brave Origin channel on Linux
+sudo python3 slimbrave-linux.py --import preset.json --channels origin
+
+# Target stable and beta on macOS
+sudo python3 slimbrave-mac.py --import preset.json --channels stable,beta
+
+# Target all installed channels (default — same as not passing --channels)
+sudo python3 slimbrave-linux.py --import preset.json --channels auto
+```
+
+Passing a channel name that matches no installed Brave instance exits with code `2` and lists the valid channel IDs.
+
+---
+
+### `--persist MODE` *(macOS only)*
+
+Controls how policies are made durable on macOS. Modern macOS (Apple Silicon / macOS 13+) may clear directly-written `/Library/Managed Preferences/*.plist` files at reboot when no Configuration Profile backs them. `--persist on` installs an Apple Configuration Profile via System Settings instead, which survives reboots reliably.
+
+<ParamField path="--persist" type="MODE">
+  `off` — write the plist only (may reset on macOS 13+). `on` — install an Apple Configuration Profile via System Settings (durable, Apple-recommended).
+</ParamField>
+
+| Mode | What it does | Survives reboot |
+|------|--------------|-----------------|
+| `off` | Writes `/Library/Managed Preferences/com.brave.Browser{,.beta,.nightly}.plist` | May reset on macOS 13+ |
+| `on` | Installs `slimbrave-neo-policy.mobileconfig` via System Settings > General > Device Management | Yes — durable |
+| *(omitted)* | Reuses whatever mode is currently installed; falls back to `off` | Depends on mode in use |
+
+```bash
+# macOS: import with a durable Configuration Profile
+sudo python3 slimbrave-mac.py \
+  --import "./Presets/Maximum Privacy Preset.json" \
+  --persist on
+
+# macOS: import with plist-only persistence
+sudo python3 slimbrave-mac.py \
+  --import "./Presets/Maximum Privacy Preset.json" \
+  --persist off
+```
+
+<Note>
+  **When `--persist` is omitted on re-runs**, the script detects the mode currently installed on the Mac and reuses it. A re-run never silently demotes an installed Configuration Profile back to plist-only. On a fresh machine with nothing installed, the default falls back to `off`.
+</Note>
+
+**Finishing the Configuration Profile install (macOS 26 / 11+).** With `--persist on`, SlimBrave Neo writes the `.mobileconfig` and opens System Settings, but macOS 11+ disallows CLI-driven profile installs. Finish the step manually:
+
+1. A **Profile Downloaded** notification appears.
+2. In System Settings, click **General** → **Device Management**.
+3. Scroll down to **Downloaded**, double-click **SlimBrave Neo - Brave Policy**.
+4. Click **Install** and enter your login password.
+
+Policies take effect immediately after install and persist across reboots. To remove, run `--reset` or delete the profile under the same Device Management pane.
+
+**`--persist` on `slimbrave-linux.py`:** The Linux script does not accept this flag at all. Passing it causes `slimbrave-linux.py` to exit with code `2`. Linux policy files at `/etc/brave/policies/managed/slimbrave.json` are already durable and do not require a persistence mechanism. Use `slimbrave-mac.py` on macOS.
+
+---
+
+## Combined Examples
+
+```bash
+# Import a preset and override the DoH template
+sudo python3 slimbrave-linux.py \
+  --import "./Presets/Maximum Privacy Preset.json" \
+  --doh-templates "https://cloudflare-dns.com/dns-query"
+
+# Export current policy
+sudo python3 slimbrave-linux.py --export ~/SlimBraveNeoSettings.json
+
+# Reset all managed policies
+sudo python3 slimbrave-linux.py --reset
+
+# Target only the stable channel
+sudo python3 slimbrave-linux.py \
+  --import "./Presets/Balanced Privacy Preset.json" \
+  --channels stable
+
+# macOS: import with durable Configuration Profile
+sudo python3 slimbrave-mac.py \
+  --import "./Presets/Maximum Privacy Preset.json" \
+  --persist on
+
+# macOS: target stable and beta only
+sudo python3 slimbrave-mac.py \
+  --import "./Presets/Balanced Privacy Preset.json" \
+  --channels stable,beta
+
+# macOS: import to a custom policy file path
+sudo python3 slimbrave-mac.py \
+  --policy-file "/Library/Preferences/com.brave.Browser.plist" \
+  --import "./Presets/Developer Preset.json"
+```
+
+---
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Fatal error (not root, file not found, policy write failed) |
+| `2` | Invalid arguments (bad `--channels` value, `--policy-file` outside allowed dirs, `--doh-templates` without `--import`, `--persist` flag passed to `slimbrave-linux.py`) |

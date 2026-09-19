@@ -1,0 +1,129 @@
+---
+title: "SlimBrave Neo: Debloat and Harden Brave Browser"
+sidebarTitle: "Introduction"
+description: "SlimBrave Neo applies Chromium enterprise policies to strip telemetry, kill bloat, and lock down Brave Browser — no extensions, no hacks, zero dependencies."
+---
+
+## What is SlimBrave Neo?
+
+SlimBrave Neo is a cross-platform tool that debloats and hardens [Brave Browser](https://brave.com) using Chromium's built-in enterprise managed policy system. Instead of patching binaries, injecting scripts, or installing browser extensions, it writes structured policy files that Brave reads natively on startup — the same mechanism enterprise IT departments use to manage Chrome across thousands of machines.
+
+The result is a browser that is quieter, leaner, and under your control: telemetry channels silenced, Brave's monetisation features disabled, fingerprinting vectors locked down, and content-setting defaults pinned so no site or extension can weaken them.
+
+**The policy approach matters.** Because SlimBrave Neo only writes to the platform's managed-policy location and never touches the Brave binary, it is fully reversible (a reset removes the file), survives Brave updates without reapplying, and does not require keeping any background process running.
+
+<Note>
+  This is **source code only** — there are no `.exe`, `.msi`, `.dmg`, or
+  installers, ever. The GitHub repository is the only official source. A
+  download claiming to be SlimBrave Neo from anywhere else is not from this
+  project.
+</Note>
+
+---
+
+## Platforms and Interfaces
+
+SlimBrave Neo ships three separate scripts, one per platform:
+
+| Platform | Script | Interface |
+|----------|--------|-----------|
+| **Windows** | `SlimBrave.ps1` | Native GUI (Windows Forms), mouse and keyboard |
+| **Linux** | `slimbrave-linux.py` | Curses TUI + non-interactive CLI flags |
+| **macOS** | `slimbrave-mac.py` | Curses TUI + non-interactive CLI flags |
+
+### Windows GUI
+
+The Windows script opens a native Windows Forms window with a sidebar that divides policies into seven categories. Each policy row carries a plain-English description under its title — so you know what you are toggling before you toggle it. Search reads description text as well as names: typing `telemetry` returns the whole reporting section; typing `passwords` surfaces "Require HTTPS for Basic Auth" even though the title never uses the word. Preset cards fill in the controls but write nothing to the registry until you press **Apply Settings**.
+
+### Linux / macOS TUI
+
+Both Unix scripts open a curses terminal interface with the same design: seven collapsible categories with live `n/m on` counts, a boxed description pane below the list, `/` to filter by name, `?` for a key overlay, and a button row at the bottom. The TUI adapts to terminal width and falls back gracefully on short terminals. Both scripts also accept CLI flags for scripting and automation.
+
+---
+
+## Policy Categories
+
+SlimBrave Neo organises its 79 policies across seven categories plus a dedicated DNS section:
+
+| Category | What it covers |
+|----------|---------------|
+| **Telemetry & Reporting** | Metrics reporting, P3A analytics, stats pings, URL data collection, Safe Browsing extended reports, Griffin/Variations experiments, enhanced spell-check web service |
+| **Privacy & Security** | Autofill, password manager, browser sign-in, WebRTC, QUIC, third-party cookies, tracking-parameter stripping, De-AMP, debouncing, fingerprint reduction, remote debugging, DNS interception probes |
+| **Site Permissions** | Per-content-type defaults (Notifications, Location, Motion Sensors, WebUSB, Web Serial, WebHID, Local Fonts, Multi-Screen) — each a tri-state *Not managed / Ask / Block* selector (some keys also offer *Allow*) |
+| **Access Controls** | SafeSearch, SafeSites adult filter, guest mode, extension installs, incognito mode |
+| **Brave Features** | Rewards, Wallet, VPN, AI Chat, Local AI (on-device models), Shields, News, Talk, Playlist, Web Discovery, Speedreader, Tor, Sync, Email Aliases |
+| **Shields & Content Protection** | Enforce ad blocking, fingerprinting protection, HTTPS upgrades, referrer policy, forget-on-close first-party storage |
+| **Performance & Bloat** | Background mode, Memory Saver, hardware acceleration, Media Router/Cast, media recommendations, shopping list, PDF viewer, translate, spellcheck, search suggestions, printing, developer tools, Wayback Machine |
+| **DNS Over HTTPS** | Mode (`unmanaged`, `automatic`, `off`, `secure`, `custom`) and a custom DoH template URL |
+
+---
+
+## Presets
+
+Rather than configuring 79 policies from scratch, you can start from one of six built-in presets. Each preset is a curated starting point — you can modify individual rows before applying.
+
+| Preset | Best for |
+|--------|----------|
+| **Maximum Privacy** | Paranoid users, journalists, activists — kills every telemetry channel, all Brave features, pins all Shields, blocks third-party cookies and most permissions. Read the Performance bullet before applying: it also disables devtools, printing, and the built-in PDF viewer. |
+| **Balanced Privacy** | Most users who want privacy but still need convenience — password manager, address autofill, and Shields left at Brave's own defaults. |
+| **Performance Focused** | Users who want a faster, cleaner Brave without extreme privacy tweaks — forces Memory Saver and hardware acceleration, kills background weight and AI. |
+| **Developer** | Developers who need devtools, printing, QUIC, and Sync working while removing telemetry and Brave's monetised features. Remote debugging stays available. |
+| **Strict Parental Controls** | Parents, schools, or workplaces that need restricted browsing — SafeSearch, SafeSites, extensions blocked, custom DoH (Cloudflare for Families). |
+| **Brave Origin** | Applies the same 15 policy keys that Brave Origin enforces to a standard Brave install, derived from `brave_origin_service_factory.cc` in brave-core. |
+
+<Tip>
+  Presets are cards (Windows) or importable JSON files (Linux/macOS). Loading
+  one fills in the controls but writes nothing to the system until you press
+  **Apply Settings** (Windows) or **Apply** (TUI). You can untick rows you
+  disagree with first.
+</Tip>
+
+---
+
+## Requirements
+
+| Requirement | Linux | macOS | Windows |
+|-------------|-------|-------|---------|
+| Runtime | Python 3.9+ (stdlib only) | Python 3.9+ (stdlib only) | PowerShell 5.1 (ships with Windows) |
+| Privileges | `sudo` / root | `sudo` / root | Administrator |
+| Brave Browser | Any packaging (deb, rpm, Flatpak, Snap, AUR) | Stable / Beta / Nightly | Any installer |
+| External dependencies | None | None | None |
+
+Python 3.9 is the CI lint floor; the scripts use no syntax newer than 3.7 in practice. PowerShell 5.1 ships with Windows 10 and 11 — no installation required.
+
+---
+
+## Quickstart
+
+<CardGroup cols={3}>
+  <Card
+    title="Windows"
+    icon="windows"
+    href="/quickstart/windows"
+  >
+    Native GUI, preset cards, registry-backed policies. One PowerShell command to launch.
+  </Card>
+  <Card
+    title="Linux"
+    icon="linux"
+    href="/quickstart/linux"
+  >
+    Curses TUI or non-interactive CLI. Writes `/etc/brave/policies/managed/slimbrave.json`. Zero dependencies.
+  </Card>
+  <Card
+    title="macOS"
+    icon="apple"
+    href="/quickstart/macos"
+  >
+    Curses TUI with plist or Configuration Profile persistence. Python 3 stdlib, requires root.
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+  After applying policies on any platform, **restart Brave** and navigate to
+  `brave://policy` to verify that the policies are listed as active and sourced
+  from a managed location. Any policy shown with a warning icon was rejected by
+  Brave — check the description pane for version requirements.
+</Note>

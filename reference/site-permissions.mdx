@@ -1,0 +1,107 @@
+---
+title: "Site Permissions Policies in SlimBrave Neo"
+sidebarTitle: "Site Permissions"
+description: "Eight content-setting policies for notifications, location, motion sensors, WebUSB, Web Serial, WebHID, local fonts, and window management — tri-state Not managed / Ask / Block (Allow where legal)."
+---
+
+Site Permissions policies set the default content-setting for eight browser permissions. Unlike the checkbox rows in other categories, these are **enum selectors**, not booleans. Each has three or four discrete states, and the available states are not uniform across all eight keys — a critical asymmetry covered below.
+
+## The Tri-State Model
+
+Every Site Permissions row is a selector with the following states:
+
+| State | Value | What It Writes | Effect |
+|---|---|---|---|
+| **Not managed** | *(nothing)* | Key is omitted from the policy file | Brave's own default and all per-site choices stand. Identical to an unticked checkbox in older versions. |
+| **Ask** | `3` | `"<Key>": 3` | Pins the permission prompt as managed policy. No site is silently granted access; users are always asked. The setting cannot be weakened from `brave://settings` or per-site overrides. |
+| **Block** | `2` | `"<Key>": 2` | No prompt, no access for any site. The permission is denied globally. |
+| **Allow** | `1` | `"<Key>": 1` | Grants the permission to every site. Only available on keys where Chromium's enum includes value `1`. |
+
+### The Allow Asymmetry
+
+**Allow is not available for all eight keys.** Chromium's enum for each content setting is defined independently, and only three of the eight have value `1` as a legal member:
+
+- **Web Notifications** (`DefaultNotificationsSetting`) — Allow is legal (value `1`)
+- **Location Access** (`DefaultGeolocationSetting`) — Allow is legal (value `1`)
+- **Motion Sensors** (`DefaultSensorsSetting`) — Allow is legal (value `1`)
+
+The remaining five keys — WebUSB, Web Serial, WebHID, Local Font Enumeration, and Window Management — **do not have value `1` in their enum**. Brave rejects a policy file that names value `1` for these keys, leaving the setting unmanaged and logging the error to `brave://policy`. These five rows are **Ask-or-Block only**.
+
+This asymmetry is verified against Chromium source and recorded in [`AUDIT.md`](https://github.com/ChaoticSi1ence/SlimBrave-Neo/blob/main/AUDIT.md).
+
+---
+
+## Policy Reference
+
+| Permission | Policy Key | Allow? | Ask? | Block? | Notes |
+|---|---|---|---|---|---|
+| Web Notifications | `DefaultNotificationsSetting` | ✅ (`1`) | ✅ (`3`) | ✅ (`2`) | Block stops every site from asking or showing notifications. Ask preserves the prompt. Allow grants notifications to every site. |
+| Location Access | `DefaultGeolocationSetting` | ✅ (`1`) | ✅ (`3`) | ✅ (`2`) | Block removes the location prompt entirely — maps and delivery sites need the address typed by hand. Ask keeps the prompt for per-site control. |
+| Motion Sensors | `DefaultSensorsSetting` | ✅ (`1`) | ✅ (`3`) | ✅ (`2`) | A known fingerprinting vector. Blocking rarely breaks anything on desktop. |
+| WebUSB Access | `DefaultWebUsbGuardSetting` | ❌ | ✅ (`3`) | ✅ (`2`) | Block breaks Ledger/Trezor web wallets and in-browser firmware flashers. Ask keeps the prompt. **No Allow state.** |
+| Web Serial Access | `DefaultSerialGuardSetting` | ❌ | ✅ (`3`) | ✅ (`2`) | Block breaks in-browser microcontroller and device programming tools. **No Allow state.** |
+| WebHID Access | `DefaultWebHidGuardSetting` | ❌ | ✅ (`3`) | ✅ (`2`) | Block may break security keys and gamepad configurators that use WebHID rather than WebAuthn. **No Allow state.** |
+| Local Font Enumeration | `DefaultLocalFontsSetting` | ❌ | ✅ (`3`) | ✅ (`2`) | `queryLocalFonts()` exposes the installed font list — a strong fingerprinting signal that Brave Shields' font protections do not cover. Blocking rarely breaks anything outside web design tools. **No Allow state.** |
+| Multi-Screen Access | `DefaultWindowManagementSetting` | ❌ | ✅ (`3`) | ✅ (`2`) | The window management permission: monitor layout plus placing windows on a chosen screen. Block breaks full-screen presentation mode in some web apps. **No Allow state.** |
+
+---
+
+## Detailed Notes
+
+### Choosing Ask vs. Block
+
+**Ask** is the privacy-preserving middle ground for hardware-dependent permissions. It ensures no site is silently granted access while still allowing the browser to prompt when a use case requires it (e.g. a hardware-wallet site requesting WebUSB). **Block** is more restrictive — it suppresses the prompt entirely — and is appropriate when you are certain the permission is never needed.
+
+For fingerprinting vectors (Motion Sensors, Local Font Enumeration), **Block** is generally the right choice on desktop since there is rarely a legitimate use case.
+
+### Location Access — Block vs. Ask
+
+Location Access is the one permission where the Ask/Block distinction has the most visible effect on ordinary browsing:
+
+- **Ask** — maps, delivery sites, and weather services can request your location; you approve or deny per-site.
+- **Block** — all location prompts are suppressed. Any site that requests your location receives an immediate denial. Maps and delivery services require addresses typed manually.
+
+The Maximum Privacy preset sets Location Access to Block. If that is too strict, change it to Ask before applying.
+
+### Local Font Enumeration — fingerprinting coverage gap
+
+Brave Shields protects against canvas, WebGL, and audio fingerprinting, but the `queryLocalFonts()` API — which returns the full list of fonts installed on the machine — is outside Shields' scope. This makes `DefaultLocalFontsSetting` one of the more privacy-significant entries in this category. Setting it to Block or Ask prevents arbitrary sites from accessing the font list without user interaction.
+
+### JSON format
+
+Site Permissions policies are written as integer values in the policy file, not strings:
+
+```json
+{
+  "DefaultNotificationsSetting": 2,
+  "DefaultGeolocationSetting": 2,
+  "DefaultSensorsSetting": 2,
+  "DefaultWebUsbGuardSetting": 2,
+  "DefaultSerialGuardSetting": 2,
+  "DefaultWebHidGuardSetting": 2,
+  "DefaultLocalFontsSetting": 2,
+  "DefaultWindowManagementSetting": 2
+}
+```
+
+The above sets all eight permissions to Block (value `2`). On Windows the values are stored as DWORD registry entries.
+
+---
+
+## Backward Compatibility
+
+SlimBrave Neo v1.9.5 and earlier exported these keys as checkbox booleans that always wrote value `2` when checked. Importing a v1.9.5 config file into a current version:
+
+- A key carrying value `2` imports cleanly as **Block**.
+- A key not present in the config comes back as **Not managed**.
+- A value outside a key's legal set (e.g. `1` for a guard-setting key) is left unmanaged rather than written out; the import result names the skipped key.
+
+No data loss or silent misconfigurations occur when importing older config files.
+
+<Warning>
+  **Never write value `1` (Allow) for WebUSB, Web Serial, WebHID, Local Fonts, or Window Management.** Brave will reject the policy file entry and leave the setting unmanaged. These five keys are Ask-or-Block only. The SlimBrave Neo UI never shows Allow for them; this only matters if you are editing a policy JSON file by hand.
+</Warning>
+
+<Note>
+  Local Font Enumeration (`DefaultLocalFontsSetting`) is **not** covered by Brave Shields fingerprinting protection. It requires its own policy entry to restrict. Setting it to Block or Ask is independent of the Enforce Fingerprinting Protection policy in Shields & Content Protection.
+</Note>

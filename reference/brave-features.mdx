@@ -1,0 +1,90 @@
+---
+title: "Brave Features Policies in SlimBrave Neo"
+sidebarTitle: "Brave Features"
+description: "Fourteen policies covering Brave-specific features: Rewards, Wallet, VPN, AI Chat, Local AI, Shields, News, Talk, Playlist, Web Discovery, Speedreader, Tor, Sync, and Email Aliases."
+---
+
+This category covers Brave-specific product features that are not present in stock Chromium. All fourteen have dedicated policy keys in brave-core. Each is an independent toggle except for the Shields pair (Disable Brave Shields / Force Shields On), which are mutually exclusive. One key (Disable Brave VPN) has no effect on Linux builds. One key (Disable Local AI) requires Brave 1.94 or newer.
+
+## Policy Reference
+
+| Policy Name | Policy Key | Value Written | What It Does | Caveats |
+|---|---|---|---|---|
+| Disable Brave Rewards | `BraveRewardsDisabled` | `true` | Removes Brave Rewards and BAT ads from the browser UI. | None. Built into Brave Origin — row is inert on Origin-only installs. |
+| Disable Brave Wallet | `BraveWalletDisabled` | `true` | Disables the built-in cryptocurrency wallet and hides its UI. | None. Built into Brave Origin — row is inert on Origin-only installs. |
+| Disable Brave VPN | `BraveVPNDisabled` | `true` | Removes the Brave VPN feature and its upsell prompts. | **No effect on Linux builds** — the VPN is not compiled into Brave for Linux. `brave://policy` still reports the key as applied, but it does nothing. Built into Brave Origin. |
+| Disable Brave AI Chat | `BraveAIChatEnabled` | `false` | Disables Leo (Brave's built-in AI assistant) and removes it from the sidebar and address bar. | Disabling Leo does **not** cover Local AI (on-device models). Set both keys to remove all AI features. Built into Brave Origin. |
+| Disable Local AI (On-Device Models) | `BraveLocalAIEnabled` | `false` | Stops Brave from downloading and running on-device AI models and from building an AI index of browsing history. | **Requires Brave 1.94+.** Older versions silently ignore the key. **Requires a browser restart.** Separate from AI Chat. Built into Brave Origin. |
+| Disable Brave Shields | `BraveShieldsDisabledForUrls` | `["https://*", "http://*"]` | Turns Shields off for every site — no ad blocking, no tracker blocking. Also makes Enforce Ad Blocking, Enforce Fingerprinting Protection, Force HTTPS Upgrades, and Cap Referrers do nothing. | **Mutually exclusive with Force Shields On.** Almost nobody wants this; it exists for kiosk/testing setups. |
+| Force Shields On (All Sites) | `BraveShieldsEnabledForUrls` | `["https://*", "http://*"]` | Locks Shields on for every site; the per-site Shields toggle is disabled. | **Mutually exclusive with Disable Brave Shields.** |
+| Disable Brave News | `BraveNewsDisabled` | `true` | Removes the Brave News feed from the new tab page. | None. Built into Brave Origin. |
+| Disable Brave Talk | `BraveTalkDisabled` | `true` | Disables Brave Talk video calls. | None. Built into Brave Origin. |
+| Disable Brave Playlist | `BravePlaylistEnabled` | `false` | Disables the Playlist feature for saving and playing media in the sidebar. | None. Built into Brave Origin. |
+| Disable Web Discovery | `BraveWebDiscoveryEnabled` | `false` | Stops Brave from anonymously contributing visited pages to the Brave Search index (Web Discovery Project). | None. Built into Brave Origin. |
+| Disable Speedreader | `BraveSpeedreaderEnabled` | `false` | Disables Speedreader, the distraction-free article reading mode. | None. Built into Brave Origin. |
+| Disable Tor | `TorDisabled` | `true` | Removes the "New private window with Tor" option. | None. Built into Brave Origin. |
+| Disable Sync | `SyncDisabled` | `true` | Disables Brave Sync, which shares bookmarks, history, and settings across devices via a sync chain. | None. Distinct from `BrowserSignin`. |
+| Disable Email Aliases | `EmailAliasesEnabled` | `false` | Disables the Email Aliases feature for generating throwaway email addresses. | None. Built into Brave Origin. |
+
+---
+
+## Detailed Notes
+
+### AI Chat vs. Local AI — disable both to cover all AI features
+
+These are two separate systems with two separate policy keys:
+
+| Feature | Policy Key | What it covers |
+|---|---|---|
+| Brave AI Chat (Leo) | `BraveAIChatEnabled: false` | Disables the Leo sidebar assistant, the AI model selection UI, and the AI Chat entry points in the address bar and right-click menu. |
+| Local AI (On-Device Models) | `BraveLocalAIEnabled: false` | Stops Brave from downloading on-device AI models and stops it from building an AI index of browsing history. Independent of Leo. |
+
+Turning Leo off (`BraveAIChatEnabled: false`) does **not** stop Brave from downloading local models or indexing history. If you want to remove all AI functionality, set both keys.
+
+`BraveLocalAIEnabled` requires **Brave 1.94 or newer** (current stable as of the time of writing). Versions older than 1.94 silently ignore the key — the policy is written but has no effect. After applying, a browser restart is required for the setting to take effect.
+
+### Brave VPN on Linux — key applies, feature doesn't
+
+On Windows and macOS, `BraveVPNDisabled: true` hides the Brave VPN UI and removes upsell prompts. On Linux, Brave does not compile the VPN feature at all — the binary has no VPN code. The policy key is still written to the policy file and `brave://policy` reports it as applied, but there is no feature for it to govern. This is expected behaviour; the key is harmless.
+
+Brave Origin likewise has the VPN compiled out (see "Built into Origin" below).
+
+### Shields — mutually exclusive states
+
+`BraveShieldsDisabledForUrls` and `BraveShieldsEnabledForUrls` are **URL list policies**, not booleans. Both rows write a wildcard URL list:
+
+```json
+{ "BraveShieldsDisabledForUrls": ["https://*", "http://*"] }
+```
+
+Disabling Shields for every URL pattern (`https://*`, `http://*`) turns off ad blocking, tracker blocking, fingerprinting protection, and HTTPS upgrades for all sites. The Shields & Content Protection policies (ad blocking, fingerprinting, HTTPS upgrades, referrers) have **no effect when Shields are disabled** — Brave skips them wherever Shields are off.
+
+```json
+{ "BraveShieldsEnabledForUrls": ["https://*", "http://*"] }
+```
+
+Forcing Shields on prevents the per-site toggle from disabling them.
+
+These two rows are **mutually exclusive**. Enabling Disable Brave Shields automatically deactivates Force Shields On in the UI, and vice versa.
+
+<Note>
+  **Disable Brave Shields** makes the Shields & Content Protection category's enforcement policies (ad blocking, fingerprinting protection, HTTPS upgrades, referrers) non-functional for every site. If you want Shields enforced as managed policy, use **Force Shields On** — not Disable Brave Shields.
+</Note>
+
+### Built into Brave Origin
+
+The following policy keys correspond to features that Brave Origin compiles out of its binary. On a machine where the only Brave installation is Brave Origin, these rows are shown as inert in the SlimBrave Neo UI (`[-]`, greyed, marked `(built into Origin)`) and are never written to the policy file:
+
+- `BraveRewardsDisabled`, `BraveWalletDisabled`, `BraveVPNDisabled`
+- `BraveAIChatEnabled`, `BraveLocalAIEnabled`
+- `BraveNewsDisabled`, `BraveTalkDisabled`, `BravePlaylistEnabled`
+- `BraveWebDiscoveryEnabled`, `BraveSpeedreaderEnabled`
+- `BraveWaybackMachineEnabled`, `TorDisabled`, `EmailAliasesEnabled`
+
+On a machine that has both Origin and standard Brave installed, the single shared policy file serves both browsers and every row is live — Origin reads the file but ignores the keys for features it doesn't have.
+
+`SyncDisabled` and `BraveP3AEnabled` / `BraveStatsPingEnabled` are **not** in the Origin-builtin list — Origin defaults them off but their policy handler is present; a managed value pins them.
+
+<Warning>
+  **Disable Local AI (`BraveLocalAIEnabled: false`) requires Brave 1.94+.** On older versions, the key is silently ignored — Brave will still download on-device models and index your history. Verify your Brave version at `brave://version` before relying on this policy.
+</Warning>

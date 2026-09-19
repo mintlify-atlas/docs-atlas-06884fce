@@ -1,0 +1,88 @@
+---
+title: "Access Controls Policies in SlimBrave Neo"
+sidebarTitle: "Access Controls"
+description: "Six lockdown policies for SafeSearch, guest mode, extensions, and incognito — including escape hatches that would otherwise bypass the rest of the policy set."
+---
+
+Access Controls contains the lockdown policies and, crucially, the **escape hatches** — guest mode, incognito mode, and the extension install channels — that would otherwise let a determined user circumvent every other restriction in the policy set. If you are configuring SlimBrave Neo for parental controls or a shared/kiosk machine, this is the category to harden first.
+
+## Policy Reference
+
+| Policy Name | Policy Key | Value Written | What It Does | Caveats |
+|---|---|---|---|---|
+| Force Google SafeSearch | `ForceGoogleSafeSearch` | `true` | Forces SafeSearch on for all Google searches. | Affects Google search only; does not filter other search engines. Mainly useful for parental controls. |
+| Filter Adult Content (SafeSites) | `SafeSitesFilterBehavior` | `1` | Sends every URL navigated to — including iframe URLs — to Google's Safe Search API for classification; anything rated adult is blocked. | **Remote lookup: every URL is sent to Google.** Not a local filter. See the SafeSites warning below. |
+| Disable Guest Mode | `BrowserGuestModeEnabled` | `false` | Removes the guest browsing option from the profile menu. | Guest windows bypass profile-level restrictions and history — closing this escape hatch is essential for any restricted setup. |
+| Block All Extensions | `ExtensionInstallBlocklist` | `["*"]` | Blocks installation of every extension and disables existing ones at policy apply time. | Breaks all extensions, including ones the user installed intentionally. For lockdown/parental setups where a proxy or VPN extension would bypass DNS filtering. |
+| Block Sideloaded (External) Extensions | `BlockExternalExtensions` | `true` | Blocks extensions that other programs install silently through the Windows registry or a drop-in file. | Extensions you install yourself through the browser store keep working. This is how bundleware and hijackers get in; it is safe to enable broadly. |
+| Disable Incognito Mode | `IncognitoModeAvailability` | `1` | Removes private browsing entirely — no incognito windows can be opened. | **Mutually exclusive with Force Incognito Mode.** Requires a browser restart. |
+| Force Incognito Mode | `IncognitoModeAvailability` | `2` | Every window opens in incognito: no persistent history, and logins and most extensions stop persisting across restarts. | **Mutually exclusive with Disable Incognito Mode.** Requires a browser restart. |
+
+---
+
+## Detailed Notes
+
+### SafeSites is a Google callout — read before enabling
+
+`SafeSitesFilterBehavior: 1` is **not a local blocklist**. It works by sending every URL the browser navigates to — including URLs loaded inside `<iframe>` elements on a page — to Google's Safe Search API for adult-content classification. Anything rated adult is blocked.
+
+This has two consequences that matter for a tool whose other rows exist to keep Google out of your browsing:
+
+1. **Every URL you visit becomes visible to Google.** This includes subpage URLs, authenticated sessions passed as query parameters, and any sensitive page you open.
+2. **It is a live network dependency.** If the Safe Search API is unreachable, classification may fail open (allowing everything) or fail closed (blocking everything), depending on Chromium's fallback behaviour.
+
+Enable SafeSites only if the parental-control value outweighs these privacy and reliability trade-offs. For most privacy-focused users, a DNS-layer filter (see the DNS Over HTTPS section) is a better alternative — it operates locally, blocks at the resolver, and does not require sending browsing URLs to Google.
+
+### Escape Hatches — why they matter
+
+Without closing the escape hatches, the rest of the policy set can be bypassed:
+
+| Escape Hatch | What it bypasses |
+|---|---|
+| Guest Mode (`BrowserGuestModeEnabled`) | Guest windows have no profile restrictions. Every policy that applies to the user profile — extension blocklists, SafeSearch, autofill settings — does not apply to a guest window. |
+| Incognito Mode (if not disabled) | Users can open an incognito window and operate without persistent history or cookies, which may or may not be desirable depending on your setup. |
+| Extension install channels | A proxy or VPN extension installed after the policy is applied can route traffic around a DNS-layer filter entirely. `BlockExternalExtensions` closes the silent install channel; `ExtensionInstallBlocklist: ["*"]` closes all channels. |
+
+### Block All Extensions vs. Block Sideloaded Extensions
+
+These two policies target different installation vectors:
+
+| Policy | Key | Blocks |
+|---|---|---|
+| Block All Extensions | `ExtensionInstallBlocklist: ["*"]` | Every extension. New installs fail; existing extensions are disabled. |
+| Block Sideloaded (External) Extensions | `BlockExternalExtensions: true` | Extensions installed via the Windows registry `ExternalExtensions` path or by dropping a file in Brave's extensions directory. Your own browser-store installs keep working. |
+
+For most setups outside full lockdown, `BlockExternalExtensions` alone is the right choice — it closes the bundleware vector without disrupting the extensions the user chose to install. For a parental-control or kiosk machine, use both.
+
+### Incognito Mode — mutually exclusive states
+
+`IncognitoModeAvailability` takes three values:
+
+```json
+{ "IncognitoModeAvailability": 0 }
+```
+Value `0` — incognito is **available** (Brave's default; not written unless you want to explicitly re-enable after disabling). SlimBrave Neo does not expose this option directly — "Not managed" leaves it at Brave's default.
+
+```json
+{ "IncognitoModeAvailability": 1 }
+```
+Value `1` — incognito is **disabled**. The "New private window" menu item disappears.
+
+```json
+{ "IncognitoModeAvailability": 2 }
+```
+Value `2` — incognito is **forced**. Every window opens in private mode. History is not persistent; most extensions do not run in incognito by default.
+
+Disable and Force are **mutually exclusive** — selecting one deactivates the other in the SlimBrave Neo UI. Both require a browser restart to take effect. Earlier versions of SlimBrave Neo's Maximum Privacy preset forced incognito mode; that was removed in v2.1 because it silently disabled persistent logins and most extensions. The Forget First-Party Storage on Close policy (in Shields & Content Protection) achieves the same session-clearing goal without those side effects.
+
+<Warning>
+  **Filter Adult Content (SafeSites) sends every URL you visit to Google.** This includes iframe URLs, search queries, and any authenticated page URL. It is a remote classification API, not a local filter. Do not enable it on a machine where URL-level browsing privacy matters. Consider a DNS-based content filter as an alternative.
+</Warning>
+
+<Warning>
+  **Block All Extensions (`ExtensionInstallBlocklist: ["*"]`) disables existing extensions**, not just new installs. Any extension the user has installed — including password managers and accessibility tools — will stop working after the policy is applied.
+</Warning>
+
+<Note>
+  For a parental-control or restricted machine, close **all three escape hatches**: disable guest mode, disable incognito, and block extension installs. Leaving any one open allows a motivated user to bypass the other restrictions.
+</Note>
