@@ -1,8 +1,10 @@
 ---
-title: "Get Started with SlimBrave Neo on macOS"
-sidebarTitle: "macOS"
+title: "SlimBrave Neo on macOS: TUI Setup and Policy Persistence"
+sidebarTitle: "MacOS"
 description: "Apply Brave hardening policies on macOS via managed plist or install a durable Configuration Profile. Python 3 stdlib only, requires root."
 ---
+
+SlimBrave Neo on macOS writes Chromium enterprise policies to `/Library/Managed Preferences/` as a per-channel plist, or installs a durable Apple Configuration Profile when `--persist on` is used. Launch the same curses TUI available on Linux, or drive everything non-interactively with CLI flags. No pip packages or external tools needed — Python 3 and `sudo` are all that's required.
 
 ## Requirements
 
@@ -57,7 +59,7 @@ The macOS TUI is the same interface described for Linux — the same seven colla
 
 Tab to the button row and choose **Import**, then enter the path to a preset file:
 
-```
+```text
 ./Presets/Maximum Privacy Preset.json
 ./Presets/Balanced Privacy Preset.json
 ./Presets/Performance Focused Preset.json

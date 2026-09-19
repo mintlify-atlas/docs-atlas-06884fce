@@ -1,8 +1,10 @@
 ---
-title: "Get Started with SlimBrave Neo on Linux"
+title: "SlimBrave Neo on Linux: Curses TUI and CLI Reference"
 sidebarTitle: "Linux"
 description: "Run the SlimBrave Neo curses TUI or use CLI flags for automation on Linux. Python 3 stdlib only — no pip install, no external dependencies."
 ---
+
+SlimBrave Neo on Linux writes a single Chromium enterprise policy file to `/etc/brave/policies/managed/slimbrave.json` that all installed Brave channels — Stable, Beta, Nightly, Dev, and Brave Origin — read automatically. Launch the interactive curses TUI or drive everything from the command line with `--import`, `--export`, and `--reset`. No pip packages, no external tools — just Python 3 and `sudo`.
 
 ## Requirements
 
@@ -68,7 +70,7 @@ The interface is divided into a scrollable list and a button row underneath.
 
 To start from a preset rather than toggling rows one by one, press **Tab** to move focus to the button row and navigate to **Import**. When prompted, enter the path to a preset file from the `Presets/` directory:
 
-```
+```text
 ./Presets/Maximum Privacy Preset.json
 ./Presets/Balanced Privacy Preset.json
 ./Presets/Performance Focused Preset.json
@@ -103,7 +105,7 @@ Any row left unchecked / on *Not managed* is cleanly absent from the written pol
 
 Press **Tab** to move focus to the button row, navigate to **Apply**, and press **Enter**. SlimBrave Neo writes:
 
-```
+```text
 /etc/brave/policies/managed/slimbrave.json
 ```
 
@@ -182,7 +184,7 @@ The exported JSON format is cross-platform compatible with `SlimBrave.ps1` and `
 
 ## Policy File Location
 
-```
+```text
 /etc/brave/policies/managed/slimbrave.json
 ```
 

@@ -1,8 +1,10 @@
 ---
-title: "Import and Export SlimBrave Neo Configurations"
+title: "Import and Export Your SlimBrave Neo Policy Config"
 sidebarTitle: "Import & Export"
-description: "Save, restore, and share SlimBrave Neo policy configurations as JSON files. Configs are cross-platform and round-trip between the Windows GUI and Linux/macOS scripts."
+description: "Save, restore, and share SlimBrave Neo policy configs as JSON. Cross-platform and compatible between the Windows GUI and Linux/macOS scripts."
 ---
+
+SlimBrave Neo can save your entire policy configuration to a plain JSON file and reload it later — on the same machine or a different one. Configs are identical across platforms, so a file exported from the Windows GUI imports cleanly on Linux or macOS, and vice versa.
 
 ## What the config format stores
 
@@ -13,7 +15,7 @@ A SlimBrave Neo export is a plain UTF-8 JSON file with two top-level sections:
 
 ### Example config snippet
 
-The keys below are taken from the Maximum Privacy Preset:
+The keys below are a representative excerpt (the full preset has more):
 
 ```json
 {
@@ -35,14 +37,12 @@ The keys below are taken from the Maximum Privacy Preset:
         "BraveGlobalPrivacyControlEnabled": true,
         "DeveloperToolsAvailability": 2,
         "PrintingEnabled": false
-    },
-    "DnsOverHttpsMode": "automatic",
-    "DnsOverHttpsTemplates": ""
+    }
 }
 ```
 
 <Note>
-The `DnsMode` and `DnsTemplates` fields in the config file map to `DnsOverHttpsMode` and `DnsOverHttpsTemplates` when written to the actual policy file. The JSON config uses short names (`DnsMode`, `DnsTemplates`) as an internal format; the scripts translate them to Chromium's policy key names when applying.
+The `DnsMode` and `DnsTemplates` fields in the config file are the short names used by SlimBrave Neo's internal format. When applying, the scripts translate them to Chromium's policy key names (`DnsOverHttpsMode` and `DnsOverHttpsTemplates`). When DNS is `unmanaged`, both keys are omitted entirely from the export.
 </Note>
 
 ## Cross-platform compatibility

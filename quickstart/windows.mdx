@@ -1,8 +1,10 @@
 ---
-title: "Get Started with SlimBrave Neo on Windows"
+title: "Set Up SlimBrave Neo on Windows with the Native GUI"
 sidebarTitle: "Windows"
 description: "Run the SlimBrave Neo Windows GUI in under a minute — clone the repo or download the script with a single PowerShell one-liner. No install required."
 ---
+
+SlimBrave Neo on Windows is a native GUI application launched from a single PowerShell script. No installation is needed — clone the repository or download `SlimBrave.ps1` directly, then run it with `-ExecutionPolicy Bypass`. The GUI opens showing whatever policies are already applied, and every change is staged before it reaches the registry.
 
 ## Requirements
 
@@ -125,7 +127,7 @@ Any row left unchecked (or a dropdown left on **Not managed**) writes nothing �
 
 When you are satisfied with your selections, click **Apply Settings** (or Tab to it and press Enter). The script writes Chromium enterprise managed policy values to:
 
-```
+```text
 HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave
 ```
 
